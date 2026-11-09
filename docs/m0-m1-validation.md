@@ -9,7 +9,7 @@ Validated November 8, 2026 (America/Los_Angeles), in the selected Linux cloud de
 - Behavior checks cover partial work at 30/60/120 Hz; release/range/pause preservation; exactly-once salvage, pickup and installation; unsafe-drop rejection; no repair without the motor; permanent completion; every floor cell reachable before and after closure; every accepted grid-sampled drop reachable; real CharacterBody2D traversal and collision through the open/closed gate; real permanent-route traversal; toggle work, pause, drop/pickup and reset through the scene; repaired machinery playback state.
 - `python3 scripts/dev.py export-windows` passed using official matching templates, embedded PCK, release mode, x86_64. The helper verifies the Windows PE signature and x86_64 machine type, writes source identity and executable SHA-512 to `builds/windows/build-info.json`, and packages the executable, guide, credits and Godot notices. Build output remains ignored by Git.
 - Python helper compilation and `git diff --check` passed. The baseline file was verified byte-for-byte against the initial commit.
-- A Linux/Windows CI matrix is included in `.github/workflows/check.yml`; local checks do not establish that remote CI has run or passed. See PR checks for remote results.
+- Remote [CI run 42555359091](https://github.com/Johnson-Dev-Agent-Management/lastshift/actions/runs/42555359091) passed on **Ubuntu 24.04 and Windows Server 2022**, testing implementation commit `71d8ad098f59053ca717535b9ff21e897a759136`. Both runners completed fresh setup, clean import/startup/behavior checks, Windows export and artifact upload. This establishes native Windows headless engine/helper execution on that runner, not Windows 10/11 graphical player behavior.
 
 During development, the checks caught GDScript type inference errors and an export launched before template setup finished. These were corrected and setup/import/behavior/export were rerun successfully. The final workflow runs dependent steps sequentially.
 
@@ -50,6 +50,6 @@ Scripted route endpoints are `(340,400)` and `(1840,400)`. Shortcut waypoints: `
 
 ## Remaining local work and next milestone
 
-Native Windows setup and graphical launch/play, Windows display scaling/input/audio, audible feedback, and fresh-player navigation/tradeoff comprehension still need testing using `docs/playtest-m1.md`. The unsigned M1 executable is a development test build. Release icons/signing, settings persistence and broader accessibility polish are deferred.
+Local Windows 10/11 setup and graphical launch/play, Windows display scaling/input/audio, audible feedback, and fresh-player navigation/tradeoff comprehension still need testing using `docs/playtest-m1.md`. The unsigned M1 executable is a development test build. Release icons/signing, settings persistence and broader accessibility polish are deferred.
 
 **Next: M2 Working systems** — authoritative power, heat, finite air, charge, drive arming, reserve, pause and a centralized survival balance profile. Start from these route/work measurements. Authored opening/incidents/outcomes remain M3; fairness and difficulty validation remain M4. No random failures or repair regression should be introduced.

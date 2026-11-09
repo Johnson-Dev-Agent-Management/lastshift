@@ -21,7 +21,7 @@ py -3 scripts/dev.py run
 py -3 scripts/dev.py editor
 ```
 
-Windows setup uses the same helper and pinned manifest, with Windows engine filenames and template paths. Native Windows execution still needs local validation. See [toolchain provenance and requirements](docs/toolchain.md).
+Windows setup uses the same helper and pinned manifest, with Windows engine filenames and template paths. Setup, headless checks and export passed CI on Windows Server 2022. Windows 10/11 graphical launch and play still need local validation. See [toolchain provenance and requirements](docs/toolchain.md).
 
 ## Validate and export
 
