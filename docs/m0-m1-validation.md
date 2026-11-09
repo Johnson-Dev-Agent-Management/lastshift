@@ -48,6 +48,12 @@ Scripted route endpoints are `(340,400)` and `(1840,400)`. Shortcut waypoints: `
 - `ship.gd` owns M1 input, target selection, menus, collision assembly and placeholder drawing. `player.gd`, `hud.gd` and `feedback.gd` separate movement/presentation. There is one main scene; extracting reusable equipment scenes can follow the actual M2 responsibilities.
 - F5 reset and F10 local logging are debug-only. No scenario-jump control, resource overlay, music, incidents or telemetry were added because M1 has no corresponding simulation.
 
+## PR review follow-up
+
+The independent “Review PR #1” chat reproduced two gaps in the original checks: horizontal arrow bindings used Right/Page Up instead of Left/Right, and a motor dropped exactly at the pump's position lost every target-selection tie to the pump. The bindings are corrected, and a dropped motor now takes priority on equal distance while retaining range and line-of-sight checks.
+
+New regression cases first failed against the reviewed implementation, then passed after the fixes. They inject physical key events through Godot's Input Map for all WASD/arrow keys, verify key release and Page Up inactivity, and use Q/E to drop and recover a motor coincident with the pump from the center and all four sides. Each overlap case verifies retained partial work and successful repair completion. Clean import, startup and the expanded M1 suite passed locally. These follow-up checks are automated; they do not add a new native Windows graphical playtest claim. The PR's CI checks track the updated branch separately from the original run linked above.
+
 ## Remaining local work and next milestone
 
 Local Windows 10/11 setup and graphical launch/play, Windows display scaling/input/audio, audible feedback, and fresh-player navigation/tradeoff comprehension still need testing using `docs/playtest-m1.md`. The unsigned M1 executable is a development test build. Release icons/signing, settings persistence and broader accessibility polish are deferred.

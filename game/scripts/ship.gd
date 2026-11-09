@@ -264,7 +264,9 @@ func select_target() -> String:
 	var distance: float = profile.interaction_range
 	for key: String in candidates:
 		var next_distance: float = player.position.distance_to(candidates[key])
-		if next_distance < distance and has_line_of_sight(candidates[key]):
+		# A motor dropped on equipment must remain recoverable from every side.
+		var motor_tie := key == "motor" and nearest != "" and next_distance == distance
+		if (next_distance < distance or motor_tie) and has_line_of_sight(candidates[key]):
 			distance = next_distance
 			nearest = key
 	return nearest

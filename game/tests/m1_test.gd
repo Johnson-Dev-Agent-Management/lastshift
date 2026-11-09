@@ -46,6 +46,8 @@ func run() -> void:
 	root.add_child(ship)
 	await process_frame
 	await physics_frame
+	await check_movement_keys()
+	await check_pump_overlap_pickup()
 	# A canceled salvage leaves the motor, work light and gate untouched.
 	ship.player.position = Layout.DONOR + Vector2(0, 80)
 	ship.interact()
@@ -117,10 +119,76 @@ func run() -> void:
 		shortcut_ticks += await walk_to(point)
 	print("M1_MEASURE pump-to-cargo open shortcut: %.2fs (%d physics ticks at 60Hz)" % [shortcut_ticks / 60.0, shortcut_ticks])
 	if failures == 0:
-		print("LAST_SHIFT_M1_PASS: state invariants, all-floor reachability, physical routes, safe drops, retained repair, feedback, reset")
+		print("LAST_SHIFT_M1_PASS: physical key input, coincident motor pickup, state invariants, all-floor reachability, physical routes, safe drops, retained repair, feedback, reset")
 	ship.queue_free()
 	await process_frame
 	quit(1 if failures else 0)
+
+func send_key(key: Key, pressed: bool) -> void:
+	var event := InputEventKey.new()
+	event.physical_keycode = key
+	event.pressed = pressed
+	Input.parse_input_event(event)
+	Input.flush_buffered_events()
+
+func check_movement_keys() -> void:
+	# Use physical key events through the real Input Map, not test_direction.
+	var directions := {
+		KEY_A: Vector2.LEFT, KEY_LEFT: Vector2.LEFT,
+		KEY_D: Vector2.RIGHT, KEY_RIGHT: Vector2.RIGHT,
+		KEY_W: Vector2.UP, KEY_UP: Vector2.UP,
+		KEY_S: Vector2.DOWN, KEY_DOWN: Vector2.DOWN,
+		KEY_PAGEUP: Vector2.ZERO,
+	}
+	for key: Key in directions:
+		ship.player.position = Layout.SPAWN
+		send_key(key, true)
+		await move_for(Vector2.ZERO, 10)
+		send_key(key, false)
+		await physics_frame
+		var displacement: Vector2 = ship.player.position - Layout.SPAWN
+		var expected: Vector2 = directions[key]
+		if expected == Vector2.ZERO:
+			expect(displacement.is_zero_approx(), "Page Up must not move the player")
+		else:
+			expect(displacement.dot(expected) > 20, "%s moves in its intended direction" % OS.get_keycode_string(key))
+			expect(absf(displacement.cross(expected)) < 0.01, "Movement stays on the intended axis")
+		var released_position: Vector2 = ship.player.position
+		await move_for(Vector2.ZERO, 2)
+		expect(ship.player.position.is_equal_approx(released_position), "Releasing the movement key stops movement")
+	ship.reset_run()
+	await physics_frame
+
+func check_pump_overlap_pickup() -> void:
+	# Non-solid machinery permits dropping directly on the pump's target point.
+	for offset in [Vector2.ZERO, Vector2.LEFT * 30, Vector2.RIGHT * 30, Vector2.UP * 30, Vector2.DOWN * 30]:
+		ship.reset_run()
+		ship.state.salvage()
+		ship.state.advance(2.0, true, true, false, PROFILE.repair_seconds)
+		ship.player.position = Layout.PUMP
+		send_key(KEY_Q, true)
+		send_key(KEY_Q, false)
+		await physics_frame
+		expect(ship.state.motor == State.Motor.DROPPED, "Q drops the motor on the pump")
+		expect(ship.state.dropped_position == Layout.PUMP, "Regression covers coincident targets")
+		ship.player.position = Layout.PUMP + offset
+		await physics_frame
+		expect(ship.select_target() == "motor", "Coincident motor is selectable from %s" % offset)
+		expect(ship.prompt_title().contains("E to pick up"), "Prompt offers recovery before an unusable pump")
+		send_key(KEY_E, true)
+		send_key(KEY_E, false)
+		await physics_frame
+		expect(ship.state.motor == State.Motor.CARRIED, "E recovers the coincident motor")
+		expect(is_equal_approx(ship.state.repair_elapsed, 2.0), "Pickup retains partial repair without consuming the motor")
+		expect(ship.select_target() == "pump", "Pump becomes the target after pickup")
+		ship.toggle_work = true
+		send_key(KEY_E, true)
+		send_key(KEY_E, false)
+		await move_for(Vector2.ZERO, 250)
+		expect(ship.state.repaired and ship.state.motor == State.Motor.INSTALLED, "Recovered motor can complete the repair")
+	ship.reset_run()
+	ship.toggle_work = false
+	await physics_frame
 
 func move_for(direction: Vector2, ticks: int) -> void:
 	ship.player.test_direction = direction
