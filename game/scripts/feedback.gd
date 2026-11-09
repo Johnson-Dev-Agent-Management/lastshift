@@ -37,8 +37,12 @@ func tone(frequency: float, seconds: float, loop := false) -> AudioStreamWAV:
 func confirm(recovered := false) -> void:
 	cue.stream = tone(660 if recovered else 400, 0.35 if recovered else 0.12)
 	cue.play()
-	if recovered:
+
+func set_pump_running(running: bool) -> void:
+	if running and not pump.playing:
 		pump.play()
+	elif not running and pump.playing:
+		pump.stop()
 
 func reset() -> void:
 	cue.stop()

@@ -1,6 +1,8 @@
 # Last Shift
 
-An aging cargo ship is your only way home. Godot 4.6.3, GDScript, Compatibility renderer. The [design baseline](docs/last-shift-game-plan.md) defines the first playable; this branch implements only **M0 and M1**.
+An aging cargo ship is your only way home. Godot 4.6.3, GDScript, Compatibility renderer. The [design baseline](docs/last-shift-game-plan.md) defines the first playable; **M0–M2** are implemented. Salvage a motor, repair cooling, arm the drive locally, and trade limited power between air, cooling and charging. Repairs and charge persist.
+
+This is a systems prototype. M3 adds the ordinary opening, authored incidents, final jump and results. The current bridge interaction verifies escape readiness; air depletion or sustained critical heat stops the simulation. Candidate rates are not validated difficulty.
 
 ## Development
 
@@ -30,6 +32,6 @@ python3 scripts/dev.py check --clean
 python3 scripts/dev.py export-windows
 ```
 
-On Windows substitute `py -3` for `python3`. Checks cover engine identity, clean import, startup and M1 behavior. Logs go to `builds/`. `--clean` deletes only Godot's generated `game/.godot/` cache. The Windows ZIP is `builds/LastShift-M1-Windows-x86_64.zip`; extract it and run `LastShift.exe` without the editor. Exports are unsigned. Builds and tool downloads stay out of Git.
+On Windows substitute `py -3` for `python3`. Checks cover engine identity, clean import, startup, M1 regressions and M2 simulation/local controls. Logs and scripted-run measurements go to `builds/`. `--clean` deletes only Godot's generated `game/.godot/` cache. The Windows ZIP is `builds/LastShift-M2-Windows-x86_64.zip`; extract it and run `LastShift.exe` without the editor. Exports are unsigned. Builds and tool downloads stay out of Git.
 
-[Hands-on controls and test route](docs/playtest-m1.md) · [validation and timing evidence](docs/m0-m1-validation.md) · [credits](docs/credits.md)
+[M2 hands-on controls and test route](docs/playtest-m2.md) · [candidate tuning and validation](docs/m2-validation.md) · [historical M0/M1 evidence](docs/m0-m1-validation.md) · [credits](docs/credits.md)

@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="" load_steps=2 format=3]
+[ext_resource type="Script" path="res://scripts/balance_profile.gd" id="1"]
+[resource]
+script = ExtResource("1")
+walk_speed = 180.0
+repair_seconds = 6.0
+interaction_range = 100.0
+profile_id = "m2-candidate-01"
+capacity = 6
+life_support_demand = 2
+cooling_demand = 2
+drive_demand = 4
+starting_air = 100.0
+starting_heat = 38.0
+powered_air_drain = 0.08
+unpowered_air_drain = 0.22
+air_warning = 25.0
+reserve_amount = 25.0
+idle_heat_rate = 0.10
+charging_heat_rate = 0.35
+cooling_rate = 0.42
+charge_rate = 0.32
+heat_warning_enter = 68.0
+heat_warning_clear = 62.0
+drive_cutoff = 86.0
+drive_restart = 64.0
+critical_enter = 92.0
+critical_clear = 88.0
+critical_grace_seconds = 30.0

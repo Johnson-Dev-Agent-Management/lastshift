@@ -1,13 +1,14 @@
 extends Node2D
 const Layout = preload("res://scripts/layout.gd")
-const State = preload("res://scripts/repair_state.gd")
+const State = preload("res://scripts/ship_simulation.gd")
 const Player = preload("res://scripts/player.gd")
 const Feedback = preload("res://scripts/feedback.gd")
+const SystemsPanel = preload("res://scripts/systems_panel.gd")
 const HUD = preload("res://scripts/hud.gd")
 const ICON = preload("res://assets/icon.svg")
-const PROFILE = preload("res://m1_profile.tres")
+const PROFILE = preload("res://balance_profile.tres")
 var profile = PROFILE
-var state = State.new()
+var state = State.new(PROFILE)
 var player = Player.new()
 var feedback = Feedback.new()
 var hud = HUD.new()
@@ -28,6 +29,8 @@ var cancel_button: Button
 var resume_button: Button
 var work_option: CheckButton
 var wall_segments: Array[Rect2] = []
+var systems_panel = SystemsPanel.new()
+var dev_overlay := false
 var ui_layer := CanvasLayer.new()
 
 func _ready() -> void:
@@ -49,6 +52,8 @@ func _ready() -> void:
 	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui_layer.add_child(hud)
 	build_menus()
+	systems_panel.ship = self
+	ui_layer.add_child(systems_panel)
 	state.event_occurred.connect(on_event)
 	state.changed.connect(sync_state)
 	sync_state()
@@ -98,11 +103,15 @@ func build_menus() -> void:
 	pause_panel = panel(Vector2(600, 300))
 	box = menu_box(pause_panel)
 	menu_label(box, "SHIFT PAUSED", 25)
-	menu_label(box, "Progress is retained.  No survival clocks exist in M1.", 18)
+	menu_label(box, "Air, heat, charge and work are paused. Progress is retained.", 18)
 	resume_button = Button.new()
 	resume_button.text = "Resume"
 	resume_button.pressed.connect(toggle_pause)
 	box.add_child(resume_button)
+	var restart := Button.new()
+	restart.text = "Restart M2 simulation"
+	restart.pressed.connect(reset_run)
+	box.add_child(restart)
 	work_option = CheckButton.new()
 	work_option.text = "Toggle E to work (instead of holding E)"
 	work_option.toggled.connect(func(enabled: bool): toggle_work = enabled; stop_work())
@@ -150,6 +159,16 @@ func menu_label(parent: Control, value: String, font_size: int) -> void:
 	parent.add_child(label)
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("dev_overlay") and OS.is_debug_build():
+		dev_overlay = not dev_overlay
+		return
+	if event.is_action_pressed("dev_ready") and OS.is_debug_build():
+		reset_run()
+		state.salvage()
+		state.advance(profile.repair_seconds + State.STEP, true, true, false, profile.repair_seconds)
+		state.arm_drive()
+		player.position = Layout.POWER + Vector2(0, 80)
+		return
 	if event.is_action_pressed("dev_reset") and OS.is_debug_build():
 		reset_run()
 		return
@@ -159,10 +178,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("pause"):
 		if confirming:
 			cancel_salvage()
+		elif systems_panel.visible:
+			systems_panel.close()
 		else:
 			toggle_pause()
 		return
-	if paused or confirming:
+	if paused or confirming or systems_panel.visible or not state.failure.is_empty():
 		return
 	if event.is_action_pressed("map"):
 		map_open = not map_open
@@ -175,10 +196,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		interact()
 
 func interact() -> void:
-	if paused or confirming:
+	if paused or confirming or systems_panel.visible or not state.failure.is_empty():
 		return
 	target = select_target()
 	match target:
+		"power", "reserve":
+			stop_work()
+			systems_panel.open(target)
+		"drive":
+			var result: String = state.arm_drive()
+			if not result.is_empty(): message = result
+			else: feedback.confirm()
+		"bridge":
+			message = "M2 COMPLETE: escape-ready at the bridge. Jump sequence arrives in M3." if state.escape_ready() else "Charge the drive before returning to the bridge."
 		"donor":
 			confirming = true
 			stop_work()
@@ -210,6 +240,7 @@ func drop_motor() -> void:
 
 func toggle_pause() -> void:
 	paused = not paused
+	state.is_paused = paused
 	stop_work()
 	pause_panel.visible = paused
 	work_option.set_pressed_no_signal(toggle_work)
@@ -226,12 +257,12 @@ func stop_work() -> void:
 	work_active = false
 
 func _physics_process(delta: float) -> void:
-	player.frozen = paused or confirming
+	player.frozen = paused or confirming or systems_panel.visible or not state.failure.is_empty()
 	target = select_target()
 	var blocked := paused or confirming
 	var requested: bool = work_latched if toggle_work else Input.is_action_pressed("interact")
 	var can_work: bool = target == "pump" and state.motor == State.Motor.CARRIED and not state.repaired
-	var working: bool = requested and can_work and not blocked
+	var working: bool = requested and can_work and not blocked and not systems_panel.visible and state.failure.is_empty()
 	if work_active and not working:
 		stop_work()
 	if not can_work:
@@ -241,8 +272,10 @@ func _physics_process(delta: float) -> void:
 		feedback.confirm()
 	work_active = working
 	state.advance(delta, working, can_work, blocked, profile.repair_seconds)
-	player.working = working
-	if not blocked:
+	player.working = working and state.failure.is_empty()
+	feedback.set_pump_running(state.cooling_active())
+	systems_panel.refresh()
+	if not blocked and state.failure.is_empty():
 		phase += delta
 	player.carrying = state.motor == State.Motor.CARRIED
 	queue_redraw()
@@ -255,7 +288,7 @@ func _physics_process(delta: float) -> void:
 		print("LAST_SHIFT_STARTUP_PASS: imported texture, ship, collision, player, HUD and physics ticks")
 
 func select_target() -> String:
-	var candidates := {"pump": Layout.PUMP}
+	var candidates := {"pump": Layout.PUMP, "power": Layout.POWER, "drive": Layout.DRIVE_PANEL, "reserve": Layout.RESERVE, "bridge": Layout.BRIDGE}
 	if state.motor == State.Motor.DONOR:
 		candidates["donor"] = Layout.DONOR
 	if state.motor == State.Motor.DROPPED:
@@ -278,26 +311,45 @@ func has_line_of_sight(point: Vector2) -> bool:
 	query.exclude = [player.get_rid()]
 	return get_world_2d().direct_space_state.intersect_ray(query).is_empty()
 
+func can_operate(equipment: String) -> bool:
+	var point: Vector2 = Layout.POWER if equipment == "power" else Layout.RESERVE
+	return not paused and state.failure.is_empty() and systems_panel.visible and systems_panel.mode == equipment and player.position.distance_to(point) < profile.interaction_range and has_line_of_sight(point)
+
 func progress_percent() -> int:
 	return int(round(state.repair_elapsed / profile.repair_seconds * 100.0))
 
 func prompt_title() -> String:
+	if not state.failure.is_empty(): return "SIMULATION STOPPED / " + state.failure + " — Esc to restart"
 	match target:
+		"power": return "POWER CONSOLE / E to allocate · %d / %d units" % [state.used_power(), profile.capacity]
+		"drive": return "JUMP DRIVE / " + state.drive_status() + (" · E to arm" if not state.drive_armed else "")
+		"reserve": return "EMERGENCY AIR / " + ("EMPTY" if state.reserve_used else "E to preview +%.2f air" % state.reserve_gain())
+		"bridge": return "BRIDGE / " + ("E to verify escape readiness" if state.escape_ready() else "Drive charge required")
 		"donor": return "CARGO DONOR MOTOR   /   E to review salvage"
 		"motor": return "MOTOR ON DECK   /   E to pick up"
 		"pump":
-			if state.repaired: return "COOLANT PUMP   /   READY — circulation restored"
+			if state.repaired: return "COOLANT PUMP / " + state.pump_status() + " — repair permanent"
 			if state.motor == State.Motor.CARRIED: return "COOLANT PUMP   /   %s E to repair · %d%%" % ["Press" if toggle_work else "Hold", progress_percent()]
 			return "COOLANT PUMP   /   BROKEN — motor required"
 	return "PERMANENT ROUTE OPEN   /   Follow the floor lights"
 
 func prompt_detail() -> String:
+	if not state.failure.is_empty():
+		if state.failure == "CRITICAL HEAT":
+			return "Stop drive charging earlier to give repaired cooling time to recover."
+		if state.reserve_used:
+			return "Air depleted; reserve already spent. Shorten charging delays or keep life support powered longer."
+		return "Air depleted. The reserve in Life Support can extend the next attempt."
 	match target:
+		"power": return "Life support slows air loss. Cooling removes heat. Drive charging requires a power tradeoff."
+		"drive": return "Arm here, then allocate power in Engineering. Charge survives power loss and heat cutoff."
+		"reserve": return "One use. Preview shows the capped gain; full air never wastes the reserve."
+		"bridge": return "M2 tests escape readiness here. The final jump, results and authored incidents arrive in M3."
 		"donor": return "Cost: closes the service shortcut and turns off its work light. Main route stays open."
 		"motor": return "One motor. Carry it to Engineering. Dropped parts never block the route."
 		"pump":
-			if state.repaired: return "This repair lasts. Power, heat and jump charging arrive in milestone M2."
-			return "6 seconds total. Leaving, releasing or dropping keeps progress. Motor used at completion."
+			if state.repaired: return "Heat trend: %+.2f /s. Cooling requires power; this repair will not fail again." % state.heat_rate()
+			return "%.0f seconds total. Leaving, releasing or dropping keeps progress. Motor used at completion." % profile.repair_seconds
 	return "Map: 1 Engineering · 2 Cargo · 3 Bridge · 4 Life Support · 5 Jump Chamber"
 
 func sync_state() -> void:
@@ -312,7 +364,7 @@ func on_event(value: String) -> void:
 		feedback.confirm()
 
 func reset_run() -> void:
-	state = State.new()
+	state = State.new(profile)
 	state.event_occurred.connect(on_event)
 	state.changed.connect(sync_state)
 	player.position = Layout.SPAWN
@@ -330,16 +382,17 @@ func reset_run() -> void:
 	pause_panel.hide()
 	salvage_panel.hide()
 	get_viewport().gui_release_focus()
+	systems_panel.close()
 	feedback.reset()
 	feedback.pump.stream_paused = false
-	message = "Developer reset. Motor, gate and repair restored to initial state."
+	message = "Run restarted. Air, heat, charge, power, reserve and repair restored."
 	sync_state()
 
 func save_log() -> void:
-	var file := FileAccess.open("user://m1-events.json", FileAccess.WRITE)
+	var file := FileAccess.open("user://m2-events.json", FileAccess.WRITE)
 	if file:
-		file.store_string(JSON.stringify({"milestone": "M1", "profile": "m1_profile.tres", "events": state.events, "active_seconds": state.active_seconds}, "\t"))
-		message = "Local event log: " + ProjectSettings.globalize_path("user://m1-events.json")
+		file.store_string(JSON.stringify({"milestone": "M2", "version": ProjectSettings.get_setting("application/config/version"), "engine": Engine.get_version_info()["string"], "profile": profile.profile_id, "events": state.events, "snapshot": state.snapshot()}, "\t"))
+		message = "Local event log: " + ProjectSettings.globalize_path("user://m2-events.json")
 
 func _draw() -> void:
 	var font := ThemeDB.fallback_font
@@ -362,14 +415,14 @@ func _draw() -> void:
 	draw_line(Vector2(140, 320), Vector2(700, 320), Color("386b6c"), 15)
 	draw_rect(Rect2(262, 255, 156, 130), Color("314b56"))
 	draw_circle(Layout.PUMP, 47, Color("0d202a"))
-	var angle := phase * 3 if state.repaired else 0.0
+	var angle := phase * 3 if state.cooling_active() else 0.0
 	for blade in 4:
 		var direction := Vector2.from_angle(angle + blade * PI / 2)
-		draw_line(Layout.PUMP + direction * 12, Layout.PUMP + direction * 38, Color("7cdac0") if state.repaired else Color("b78e55"), 10)
-	machine_label(Vector2(260, 420), "PUMP / " + ("READY" if state.repaired else "BROKEN"))
+		draw_line(Layout.PUMP + direction * 12, Layout.PUMP + direction * 38, Color("7cdac0") if state.cooling_active() else Color("b78e55"), 10)
+	machine_label(Vector2(260, 420), "PUMP / " + state.pump_status())
 	machine_label(Vector2(550, 255), "POWER CONSOLE")
 	draw_rect(Rect2(552, 275, 120, 70), Color("38505c"))
-	machine_label(Vector2(550, 377), "OFFLINE IN M1")
+	machine_label(Vector2(550, 377), "POWER %d / %d" % [state.used_power(), profile.capacity])
 	# Cargo: crate silhouettes and donor, all floor decals, never solid blockers.
 	for x in [1450, 1560, 1930]:
 		for y in [435, 515]:
@@ -394,21 +447,29 @@ func _draw() -> void:
 	for i in 12:
 		draw_circle(Vector2(197 + i * 31, 1185 + (i * 17) % 48), 2, Color("a8c6ce"))
 	draw_arc(Vector2(380, 1330), 60, PI, TAU, 24, Color("7cdac0"), 12)
-	machine_label(Vector2(270, 1410), "HELM / STANDBY")
+	machine_label(Vector2(270, 1410), "HELM / " + ("JUMP READY" if state.escape_ready() else "WAITING FOR CHARGE"))
 	# Life-support cylinders.
 	for x in [915, 1045, 1175]:
 		draw_style_box(cylinder_style(), Rect2(x, 1200, 80, 160))
-	machine_label(Vector2(930, 1430), "AIR RESERVE / STANDBY")
+	machine_label(Vector2(930, 1430), "RESERVE / " + ("EMPTY" if state.reserve_used else "AVAILABLE"))
+	for x in [955, 1085, 1215]:
+		var fan := Vector2(x, 1170)
+		var turn := phase * 3 if state.life_support_powered and state.failure.is_empty() else 0.0
+		draw_line(fan - Vector2.from_angle(turn) * 20, fan + Vector2.from_angle(turn) * 20, Color("7cdac0"), 6)
 	# Circular jump assembly.
 	var drive := Vector2(1820, 1300)
 	draw_circle(drive, 90, Color("0f232e"))
 	draw_arc(drive, 100, 0, TAU, 64, Color("526b7c"), 18)
 	draw_arc(drive, 66, 0, TAU, 64, Color("7cdac0"), 3)
-	machine_label(Vector2(1680, 1450), "JUMP DRIVE / STANDBY")
+	machine_label(Vector2(1630, 1450), "DRIVE / " + state.drive_status())
+	draw_arc(drive, 80, -PI / 2, -PI / 2 + TAU * state.charge / 100.0, 64, Color("efbb70"), 8)
+	draw_rect(Rect2(Layout.DRIVE_PANEL - Vector2(35, 25), Vector2(70, 50)), Color("38505c"))
+	machine_label(Layout.DRIVE_PANEL + Vector2(-35, 50), "ARM PANEL")
 	if state.motor == State.Motor.DROPPED:
 		draw_motor(state.dropped_position)
 	if target != "":
-		var point: Vector2 = Layout.PUMP if target == "pump" else (Layout.DONOR if target == "donor" else state.dropped_position)
+		var points := {"pump": Layout.PUMP, "donor": Layout.DONOR, "power": Layout.POWER, "drive": Layout.DRIVE_PANEL, "reserve": Layout.RESERVE, "bridge": Layout.BRIDGE, "motor": state.dropped_position}
+		var point: Vector2 = points[target]
 		draw_arc(point, 62 if target != "motor" else 24, 0, TAU, 48, Color("efbb70"), 2)
 		draw_string(font, point + Vector2(-7, -70 if target != "motor" else -32), "E", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color("efbb70"))
 
