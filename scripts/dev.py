@@ -94,7 +94,7 @@ def version():
 def checked(label, args, marker=None):
     BUILD.mkdir(exist_ok=True)
     result = subprocess.run(args, env=ENV, cwd=ROOT, stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT, text=True, timeout=180)
+                            stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", timeout=180)
     (BUILD / f'{label}.log').write_text(result.stdout, encoding='utf-8')
     errors = re.search(r'SCRIPT ERROR:|\bERROR:|Parse Error|Failed to load|Assertion failed', result.stdout)
     if result.returncode or errors or (marker and marker not in result.stdout):
@@ -113,7 +113,7 @@ def check(clean=False):
         shutil.rmtree(GAME / '.godot')
     checked('import', godot('--import'))
     checked('startup', godot('--quit-after', '120', '--', '--smoke-test'), 'LAST_SHIFT_STARTUP_PASS')
-    checked('m1-tests', godot('--script', 'res://tests/m1_test.gd'), 'LAST_SHIFT_M1_PASS')
+    checked('m1-tests', godot('--fixed-fps', '60', '--script', 'res://tests/m1_test.gd'), 'LAST_SHIFT_M1_PASS')
 
 
 def export_windows():
@@ -131,7 +131,9 @@ def export_windows():
     metadata = {'engine': PIN['engine_version'], 'source_commit': revision, 'source_dirty': dirty,
                 'executable_sha512': digest(target), 'milestones': 'M0/M1', 'native_windows_tested': False}
     (target.parent / 'build-info.json').write_text(json.dumps(metadata, indent=2) + '\n')
-    for source, dest in [('docs/playtest-m1.md', 'PLAYTEST.md'), ('docs/credits.md', 'CREDITS.md')]:
+    for source, dest in [('docs/playtest-m1.md', 'PLAYTEST.md'), ('docs/credits.md', 'CREDITS.md'),
+                         ('docs/GODOT-LICENSE.txt', 'GODOT-LICENSE.txt'),
+                         ('docs/GODOT-COPYRIGHT.txt', 'GODOT-COPYRIGHT.txt')]:
         if (ROOT / source).exists():
             shutil.copyfile(ROOT / source, target.parent / dest)
     shutil.make_archive(str(BUILD / 'LastShift-M1-Windows-x86_64'), 'zip', target.parent)
