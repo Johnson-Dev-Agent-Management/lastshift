@@ -1,0 +1,24 @@
+name: Godot M0 and M1
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  validate:
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python scripts/dev.py setup
+      - run: python scripts/dev.py check --clean
+      - run: python scripts/dev.py export-windows
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LastShift-M1-${{ matrix.os }}
+          path: |
+            builds/LastShift-M1-Windows-x86_64.zip
+            builds/*.log
