@@ -1,0 +1,12 @@
+{
+  "version": "4.6.3",
+  "engine_version": "4.6.3.stable.official.7d41c59c4",
+  "template_version": "4.6.3.stable",
+  "base_url": "https://github.com/godotengine/godot-builds/releases/download/4.6.3-stable",
+  "checksums_source": "https://github.com/godotengine/godot-builds/releases/download/4.6.3-stable/SHA512-SUMS.txt",
+  "sha512": {
+    "Godot_v4.6.3-stable_linux.x86_64.zip": "a035258da32b77f966a5376f9fa29c30a6adde826a85ba918e1605bd1fc9823eba7d85f1dd5e748956bd2ba72827c0025ffa11bb82aec91128c407a2e723c99c",
+    "Godot_v4.6.3-stable_win64.exe.zip": "d44ea7ef5bab754cacd49d581b6062836b2eea12a82e1d183aebfad9cd8c7db2bd82513337bd657d6d2d5c04d46239c0570b029faf1343e81e8a2fa7b85dd83b",
+    "Godot_v4.6.3-stable_export_templates.tpz": "da606b61c10157844f8300172df374472665f95015495cb1a7cd132c40ede404faa96cc1016a4b9662db9909ddea69632c4948b2cd11163438dad4808881fb68"
+  }
+}

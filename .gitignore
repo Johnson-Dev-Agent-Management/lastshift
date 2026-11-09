@@ -1,0 +1,13 @@
+# Engine cache, editor state, generated toolchain and build products
+.godot/
+.tools/
+builds/
+*.tmp
+*.log
+__pycache__/
+# Local export credentials and OS/editor files
+.godot/export_credentials.cfg
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
