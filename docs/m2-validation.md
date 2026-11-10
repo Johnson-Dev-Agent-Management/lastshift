@@ -4,7 +4,7 @@ Implemented on `feat/m2-working-systems` from merged M0/M1 baseline `f6711af`. E
 
 ## Candidate profile
 
-`game/balance_profile.tres` replaces the M1-only resource and centralizes all current tunables. Profile ID: **m2-candidate-01**. Values are normalized units per active second, unless stated otherwise.
+`game/balance_profile.tres` replaces the M1-only resource and centralizes all current tunables. Current profile ID: **m2-candidate-02** (application 0.2.1). Values are normalized units per active second, unless stated otherwise.
 
 | Setting | Value |
 | --- | --- |
@@ -14,12 +14,14 @@ Implemented on `feat/m2-working-systems` from merged M0/M1 baseline `f6711af`. E
 | Air drain, life support on / off | 0.08 / 0.22 per second |
 | Low-air warning / one-shot reserve | 25 / up to +25, capped at 100 |
 | Idle heat / extra charging heat / repaired cooling | +0.10 / +0.35 / −0.42 per second |
-| Charge rate | +0.32% per second while powered, repaired and armed |
+| Charge rate | +0.833333…% per second (100 / 120) while powered, repaired and armed |
 | Heat warning enter / clear | ≥68 / ≤62 |
 | Drive cutoff / availability restored | ≥86 / strictly below 64 |
 | Critical enter / clear / grace | ≥92 / strictly below 88 / 30 s |
 
-Initial allocation is life support + cooling (4/6). Broken cooling still occupies its allocation; the pump status and heat trend expose that it has no cooling effect. Repair makes the allocated cooling useful immediately and permanently. Charging with cooling yields +0.03 heat/s; charging without cooling yields +0.45; repaired cooling without charging yields −0.32. Life support always consumes finite air. Full charge takes about 312.5 seconds of actual charging and releases only drive demand.
+Initial allocation is life support + cooling (4/6). Broken cooling still occupies its allocation; the pump status and heat trend expose that it has no cooling effect. Repair makes the allocated cooling useful immediately and permanently. Charging with cooling yields +0.03 heat/s; charging without cooling yields +0.45; repaired cooling without charging yields −0.32. Life support always consumes finite air. Full charge takes about 120 seconds of actual charging and releases only drive demand.
+
+Candidate 02 responds to the player's report that charging took too long: charge rate increased from 0.32 to 100/120 per second, reducing uninterrupted charging from 312.5 to 120 seconds. Air/heat rates, thresholds, walking speed, repair time and reserve remain unchanged. This intentionally offers more resource margin while testing the shorter wait; later tuning must use full human runs rather than multiplying every drain and punishing fixed travel/reading time. No additional chores or incidents were added to fill the timer.
 
 The first candidate iteration used 0.10/s powered air drain; the slower cooling-break policy then consumed more air than uninterrupted charging. This candidate uses 0.08 to give that longer policy an air-margin benefit. Warning thresholds moved from 72/66 to 68/62 to provide 40 seconds from warning to cutoff at maximum charging heat: `(86 − 68) / 0.45`. The measured drive-to-power route is 13.60 seconds, leaving a nominal 6.40 seconds for noticing and operating within a 20-second response budget, doubled to 40. This is a design allowance, **not measured human response or demonstrated fairness**. A full reserve buys roughly 114 seconds with support off or 313 with support on, absent later incidents.
 
@@ -57,10 +59,10 @@ The scripted runs include 8.70 seconds outbound, 10 seconds of decision allowanc
 
 | Policy | Total active time | Air at checkpoint | Heat | Charge | Cooling breaks |
 | --- | --- | --- | --- | --- | --- |
-| Careful: life support stays on; charge to heat 64, cool to 38 | 800.75 s (13.35 min) | 35.94 | 38.28 | 100% | 5 |
-| Aggressive: cooling stays on, life support off while charging | 394.37 s (6.57 min) | 24.70 | 37.07 | 100% | 0 |
+| Careful: life support stays on; charge to heat 64, cool to 38 | 283.17 s (4.72 min) | 77.35 | 55.70 | 100% | 1 |
+| Aggressive: cooling stays on, life support off while charging | 201.88 s (3.36 min) | 67.05 | 31.30 | 100% | 0 |
 
-These demonstrate viable resource paths and a time/air tradeoff under one candidate. They do not prove balance, enjoyment, an imperfect-play recovery route, or final victory. Their durations bracket the eventual 8–12 minute target even before the opening and leak exist. Continuous charging may still dominate in practice; test that before adding mechanics or tuning to a win percentage.
+These demonstrate viable resource paths and a time/air tradeoff under candidate 02. Candidate 01 took 800.75 seconds / 35.94 air with five cooling breaks and 394.37 seconds / 24.70 air continuously. The new timings include the same travel/decision allowances. They do not prove balance, enjoyment, an imperfect-play recovery route, final victory or the eventual 8–12 minute target. Continuous charging may still dominate in practice; test that before adding mechanics or tuning to a win percentage.
 
 The Windows export uses the matching official release template with embedded resources. The helper checks PE/x86_64 identity and packages the playtest guide, credits and notices in `builds/LastShift-M2-Windows-x86_64.zip`. CI runs the same setup/check/export sequence on Ubuntu 24.04 and Windows Server 2022, uploads logs plus scripted measurements, and records current results on the PR. Windows CI is headless validation, not a Windows graphical playtest.
 
@@ -75,6 +77,8 @@ python3 scripts/dev.py run --script res://tests/capture.gd
 ```
 
 Images go to `builds/screenshots-m2/`. Threshold and ready captures use scripted state setup; they are not manually achieved gameplay outcomes. Audio generation/playback state is checked in code; audible output/mix was not heard or validated.
+
+The 0.2.1 feedback pass adds a quarter-second lever pull, a lit indicator, a persistent `ARMED` label, a 1.2-second confirmation pulse and a distinct low activation tone. The lever follows authoritative arming state, so power loss/cooldown cannot visually undo it. Repeated E presses do not replay activation. The agent walked the actual Linux permanent corridor to the panel, pressed E, inspected the lowered handle/light/confirmation, pressed E again and walked away to verify the persistent state. Before, activation and settled-state fixtures were also rendered at both target resolutions (`drive-unarmed`, `drive-pulled`, `drive-armed`) and inspected. The audible tone and native Windows appearance still need local confirmation. The scene suite checks repeated arming remains a single event; both scripted resource approaches were rerun for candidate 02.
 
 ## Remaining work and next milestone
 

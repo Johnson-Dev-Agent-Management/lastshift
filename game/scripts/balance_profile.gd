@@ -1,6 +1,6 @@
 extends Resource
 ## Candidate tuning, not validated difficulty. Rates are normalized units/second.
-@export var profile_id := "m2-candidate-01"
+@export var profile_id := "m2-candidate-02"
 @export var walk_speed := 180.0
 @export var repair_seconds := 6.0
 @export var interaction_range := 100.0
@@ -17,7 +17,7 @@ extends Resource
 @export var idle_heat_rate := 0.10
 @export var charging_heat_rate := 0.35
 @export var cooling_rate := 0.42
-@export var charge_rate := 0.32
+@export var charge_rate := 100.0 / 120.0
 @export var heat_warning_enter := 68.0
 @export var heat_warning_clear := 62.0
 @export var drive_cutoff := 86.0

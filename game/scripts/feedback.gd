@@ -44,6 +44,11 @@ func set_pump_running(running: bool) -> void:
 	elif not running and pump.playing:
 		pump.stop()
 
+func switch_pull() -> void:
+	# A brief low clunk distinguishes the latched lever from UI button tones.
+	cue.stream = tone(160, 0.16)
+	cue.play()
+
 func reset() -> void:
 	cue.stop()
 	pump.stop()

@@ -27,6 +27,14 @@ func run() -> void:
 		ship.map_open = true
 		await capture(viewport, "map")
 		ship.map_open = false
+		ship.player.position = ship.Layout.DRIVE_PANEL + Vector2(-75, 65)
+		await capture(viewport, "drive-unarmed")
+		ship.state.arm_drive()
+		for frame in 20: await physics_frame
+		await capture(viewport, "drive-pulled")
+		for frame in 75: await physics_frame
+		await capture(viewport, "drive-armed")
+		ship.reset_run()
 		ship.player.position = ship.Layout.POWER + Vector2(0, 80)
 		ship.state.salvage()
 		ship.state.advance(6, true, true, false, 6)
@@ -56,7 +64,7 @@ func run() -> void:
 		ship.state.arm_drive()
 		ship.state.set_power("life_support", false)
 		ship.state.set_power("drive", true)
-		ship.state.advance(312.6, false, false, false, 6)
+		ship.state.advance(100.0 / ship.profile.charge_rate + ship.State.STEP, false, false, false, 6)
 		ship.player.position = ship.Layout.BRIDGE
 		await capture(viewport, "escape-ready")
 		viewport.queue_free()

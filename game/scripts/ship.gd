@@ -22,6 +22,8 @@ var work_latched := false
 var work_active := false
 var message := "Find Cargo via the shortcut or the lit permanent corridor."
 var phase := 0.0
+var drive_switch_pull := 0.0
+var drive_arm_flash := 0.0
 var frames := 0
 var pause_panel: PanelContainer
 var salvage_panel: PanelContainer
@@ -204,9 +206,10 @@ func interact() -> void:
 			stop_work()
 			systems_panel.open(target)
 		"drive":
+			var was_armed: bool = state.drive_armed
 			var result: String = state.arm_drive()
 			if not result.is_empty(): message = result
-			else: feedback.confirm()
+			elif was_armed: message = "Drive already ARMED. Allocate drive power at Engineering to charge."
 		"bridge":
 			message = "M2 COMPLETE: escape-ready at the bridge. Jump sequence arrives in M3." if state.escape_ready() else "Charge the drive before returning to the bridge."
 		"donor":
@@ -277,6 +280,8 @@ func _physics_process(delta: float) -> void:
 	systems_panel.refresh()
 	if not blocked and state.failure.is_empty():
 		phase += delta
+		drive_switch_pull = move_toward(drive_switch_pull, 1.0 if state.drive_armed else 0.0, delta / 0.25)
+		drive_arm_flash = maxf(0.0, drive_arm_flash - delta)
 	player.carrying = state.motor == State.Motor.CARRIED
 	queue_redraw()
 	hud.queue_redraw()
@@ -342,7 +347,10 @@ func prompt_detail() -> String:
 		return "Air depleted. The reserve in Life Support can extend the next attempt."
 	match target:
 		"power": return "Life support slows air loss. Cooling removes heat. Drive charging requires a power tradeoff."
-		"drive": return "Arm here, then allocate power in Engineering. Charge survives power loss and heat cutoff."
+		"drive":
+			if state.drive_armed:
+				return "Switch latched: ARMED. " + ("Allocate drive power at Engineering to charge." if state.repaired else "Repair the pump, then allocate drive power at Engineering.")
+			return "Pull the switch here, then allocate power in Engineering. Charge survives power loss and heat cutoff."
 		"reserve": return "One use. Preview shows the capped gain; full air never wastes the reserve."
 		"bridge": return "M2 tests escape readiness here. The final jump, results and authored incidents arrive in M3."
 		"donor": return "Cost: closes the service shortcut and turns off its work light. Main route stays open."
@@ -360,6 +368,9 @@ func on_event(value: String) -> void:
 	message = value
 	if value.begins_with("PUMP REPAIRED"):
 		feedback.confirm(true)
+	elif value.begins_with("Drive ARMED"):
+		drive_arm_flash = 1.2
+		feedback.switch_pull()
 	elif value.begins_with("Motor"):
 		feedback.confirm()
 
@@ -379,6 +390,8 @@ func reset_run() -> void:
 	work_latched = false
 	work_active = false
 	phase = 0
+	drive_switch_pull = 0.0
+	drive_arm_flash = 0.0
 	pause_panel.hide()
 	salvage_panel.hide()
 	get_viewport().gui_release_focus()
@@ -463,15 +476,44 @@ func _draw() -> void:
 	draw_arc(drive, 66, 0, TAU, 64, Color("7cdac0"), 3)
 	machine_label(Vector2(1630, 1450), "DRIVE / " + state.drive_status())
 	draw_arc(drive, 80, -PI / 2, -PI / 2 + TAU * state.charge / 100.0, 64, Color("efbb70"), 8)
-	draw_rect(Rect2(Layout.DRIVE_PANEL - Vector2(35, 25), Vector2(70, 50)), Color("38505c"))
-	machine_label(Layout.DRIVE_PANEL + Vector2(-35, 50), "ARM PANEL")
+	draw_drive_switch()
 	if state.motor == State.Motor.DROPPED:
 		draw_motor(state.dropped_position)
 	if target != "":
 		var points := {"pump": Layout.PUMP, "donor": Layout.DONOR, "power": Layout.POWER, "drive": Layout.DRIVE_PANEL, "reserve": Layout.RESERVE, "bridge": Layout.BRIDGE, "motor": state.dropped_position}
 		var point: Vector2 = points[target]
-		draw_arc(point, 62 if target != "motor" else 24, 0, TAU, 48, Color("efbb70"), 2)
-		draw_string(font, point + Vector2(-7, -70 if target != "motor" else -32), "E", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color("efbb70"))
+		var radius := 90 if target == "drive" else (24 if target == "motor" else 62)
+		draw_arc(point, radius, 0, TAU, 48, Color("efbb70"), 2)
+		draw_string(font, point + Vector2(-7, -radius - 8), "E", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color("efbb70"))
+
+func draw_drive_switch() -> void:
+	# The lever follows arming, not power: it stays pulled during cutoff and power loss.
+	var point := Layout.DRIVE_PANEL
+	var color := Color("7cdac0") if state.drive_armed else Color("9bafba")
+	var housing := Rect2(point - Vector2(45, 60), Vector2(90, 120))
+	draw_rect(housing.grow(5), Color("0d202a"))
+	draw_rect(housing, Color("29434e"))
+	draw_rect(housing, color, false, 2)
+	draw_rect(Rect2(point - Vector2(6, 36), Vector2(12, 72)), Color("0d202a"))
+	for y in [-30, 30]:
+		draw_line(point + Vector2(-15, y), point + Vector2(15, y), color, 2)
+	var pull := smoothstep(0.0, 1.0, drive_switch_pull)
+	var grip := point + Vector2(-12 * sin(PI * pull), lerpf(-30, 30, pull))
+	draw_line(point, grip, Color("9bafba"), 8)
+	draw_rect(Rect2(grip - Vector2(23, 7) + Vector2(3, 4), Vector2(46, 14)), Color("0d202a"))
+	draw_rect(Rect2(grip - Vector2(23, 7), Vector2(46, 14)), Color("efbb70"))
+	draw_line(grip - Vector2(16, 0), grip + Vector2(16, 0), Color("e3eeeb"), 2)
+	draw_circle(point + Vector2(30, -44), 6, Color("7cdac0") if state.drive_armed else Color("0d202a"))
+	var label := "ARMED" if state.drive_armed else "PULL TO ARM"
+	var font := ThemeDB.fallback_font
+	var label_size := 18 if state.drive_armed else 14
+	var width := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, label_size).x
+	draw_string(font, point + Vector2(-width / 2, 80), label, HORIZONTAL_ALIGNMENT_LEFT, -1, label_size, color)
+	if drive_arm_flash > 0:
+		var flash := Color("7cdac0")
+		flash.a = drive_arm_flash / 1.2
+		draw_arc(point, 74 + (1.2 - drive_arm_flash) * 28, 0, TAU, 64, flash, 4)
+		draw_string(font, point + Vector2(-230, -85), "DRIVE ARMED", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, flash)
 
 func machine_label(point: Vector2, value: String) -> void:
 	draw_string(ThemeDB.fallback_font, point, value, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color("bfd1d3"))

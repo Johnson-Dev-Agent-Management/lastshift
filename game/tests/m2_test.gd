@@ -242,6 +242,9 @@ func check_scene_controls() -> void:
 	expect(ship.select_target() == "drive", "Permanent route reaches local drive panel")
 	press(KEY_E)
 	expect(ship.state.drive_armed and not ship.state.drive_powered, "Local panel arms without silently allocating power")
+	var arm_events: int = ship.state.events.size()
+	press(KEY_E)
+	expect(ship.state.drive_armed and ship.state.events.size() == arm_events, "Repeated interaction keeps the switch armed without another activation event")
 	route_ticks = 0
 	for point in [Vector2(1800, 1300), Vector2(1800, 840), Vector2(480, 840), Vector2(480, 390), Vector2(612, 390)]:
 		route_ticks += await walk_to(point)
