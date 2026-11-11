@@ -115,6 +115,7 @@ def check(clean=False):
     checked('startup', godot('--quit-after', '120', '--', '--smoke-test'), 'LAST_SHIFT_STARTUP_PASS')
     checked('m1-tests', godot('--fixed-fps', '60', '--script', 'res://tests/m1_test.gd'), 'LAST_SHIFT_M1_PASS')
     checked('m2-tests', godot('--fixed-fps', '60', '--script', 'res://tests/m2_test.gd'), 'LAST_SHIFT_M2_PASS')
+    checked('m3-tests', godot('--fixed-fps', '60', '--script', 'res://tests/m3_test.gd'), 'LAST_SHIFT_M3_PASS')
 
 
 def export_windows():
@@ -130,15 +131,15 @@ def export_windows():
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
     dirty = bool(subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True).strip())
     metadata = {'engine': PIN['engine_version'], 'source_commit': revision, 'source_dirty': dirty,
-                'executable_sha512': digest(target), 'milestones': 'M0/M1/M2', 'native_windows_tested': False}
+                'executable_sha512': digest(target), 'milestones': 'M0/M1/M2/M3', 'native_windows_tested': False}
     (target.parent / 'build-info.json').write_text(json.dumps(metadata, indent=2) + '\n')
-    for source, dest in [('docs/playtest-m2.md', 'PLAYTEST.md'), ('docs/credits.md', 'CREDITS.md'),
+    for source, dest in [('docs/playtest-m3.md', 'PLAYTEST.md'), ('docs/credits.md', 'CREDITS.md'),
                          ('docs/GODOT-LICENSE.txt', 'GODOT-LICENSE.txt'),
                          ('docs/GODOT-COPYRIGHT.txt', 'GODOT-COPYRIGHT.txt')]:
         if (ROOT / source).exists():
             shutil.copyfile(ROOT / source, target.parent / dest)
-    shutil.make_archive(str(BUILD / 'LastShift-M2-Windows-x86_64'), 'zip', target.parent)
-    print(f'Windows package: {BUILD / "LastShift-M2-Windows-x86_64.zip"}', flush=True)
+    shutil.make_archive(str(BUILD / 'LastShift-M3-Windows-x86_64'), 'zip', target.parent)
+    print(f'Windows package: {BUILD / "LastShift-M3-Windows-x86_64.zip"}', flush=True)
 
 
 def main():

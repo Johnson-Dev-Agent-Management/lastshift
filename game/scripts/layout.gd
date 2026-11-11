@@ -19,6 +19,8 @@ const POWER := Vector2(612, 310)
 const DRIVE_PANEL := Vector2(1970, 1300)
 const RESERVE := Vector2(1080, 1380)
 const BRIDGE := Vector2(380, 1330)
+const CONNECTOR := Vector2(1480, 210)
+const LEAK := Vector2(1980, 530)
 const SPAWN := Vector2(480, 460)
 
 static func floors() -> Array:

@@ -57,6 +57,7 @@ func open(which: String) -> void:
 	close_button.grab_focus()
 
 func close() -> void:
+	if not visible: return
 	hide()
 	get_viewport().gui_release_focus()
 	closed.emit()
@@ -86,10 +87,12 @@ func refresh() -> void:
 	heading.text = "ENGINEERING / POWER" if power_mode else "LIFE SUPPORT / EMERGENCY AIR"
 	summary.text = "POWER %d / %d   ·   AIR %.1f   ·   HEAT %.1f   ·   CHARGE %.1f%%" % [state.used_power(), profile.capacity, state.air, state.heat, state.charge]
 	detail.text = "Time is running. Close this panel, then Esc to pause.\nDrive: " + state.drive_status() if power_mode else "Time is running. One use only; the preview updates to the actual available gain."
+	var opening: bool = state.stage == ship.State.Stage.OPENING
+	if opening: detail.text = "PRE-JUMP CHECK · no resource danger.\nCycle cooling OFF then ON to complete the scheduled-jump checks."
 	for consumer: String in buttons:
 		var button: Button = buttons[consumer]
 		button.visible = power_mode
-		button.disabled = not state.command_blocked().is_empty()
+		button.disabled = not state.command_blocked().is_empty() or (opening and (consumer != "cooling" or not state.connector_ready))
 		var active: bool = state.get(consumer + "_powered")
 		var demand: int = profile.get(consumer + "_demand")
 		var effect := "slows air loss" if consumer == "life_support" else ("removes heat when repaired" if consumer == "cooling" else "charges the armed, repaired drive")

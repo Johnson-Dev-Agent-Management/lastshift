@@ -1,5 +1,6 @@
 extends SceneTree
 const Simulation = preload("res://scripts/ship_simulation.gd")
+const Run = preload("res://scripts/run_controller.gd")
 const Layout = preload("res://scripts/layout.gd")
 const PROFILE = preload("res://balance_profile.tres")
 var failures := 0
@@ -11,6 +12,7 @@ func expect(condition: bool, description: String) -> void:
 		push_error(description)
 
 func tick(state, seconds: float, work := false) -> void:
+	if work and state is Run: state.work_target = "pump"
 	state.advance(seconds, work, work, false, state.profile.repair_seconds)
 
 func prepared():
@@ -211,6 +213,7 @@ func walk_to(point: Vector2) -> int:
 func check_scene_controls() -> void:
 	ship = load("res://scenes/ship.tscn").instantiate()
 	root.add_child(ship)
+	ship.reset_run()
 	await frames(2)
 	ship.state.salvage()
 	tick(ship.state, PROFILE.repair_seconds, true)
@@ -275,8 +278,9 @@ func check_scene_controls() -> void:
 	expect(ship.state.charge == 0 and not ship.state.drive_armed and not ship.state.reserve_used and not ship.state.repaired, "Restart clears all M2 progress")
 	expect(ship.state.used_power() == 4 and not ship.systems_panel.visible and not ship.paused and not ship.feedback.pump.playing, "Restart restores allocation, menus, controls and machinery")
 	ship.state.stop_simulation("AIR DEPLETED")
+	await frames(2)
 	press(KEY_ESCAPE)
-	expect(ship.paused, "Stopped simulation still permits pause/restart menu")
+	expect(ship.results_panel.visible, "Terminal simulation presents the retry screen")
 	ship.reset_run()
 	await frames(2)
 	expect(ship.state.failure.is_empty() and not ship.player.frozen, "Restart recovers from terminal stop")
