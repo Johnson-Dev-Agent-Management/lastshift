@@ -27,10 +27,10 @@ func run() -> void:
 		ship.map_open = true
 		await capture(viewport, "opening-map")
 		ship.map_open = false
-		await capture(viewport, "opening-lights")
+		await capture(viewport, "opening-route")
 		for i in range(1, ship.Layout.ROOMS.size()):
 			ship.player.position = ship.Layout.ROOMS[i].get_center()
-			await capture(viewport, "room-lights-%d" % i)
+			await capture(viewport, "room-%d" % i)
 		ship.player.position = ship.Layout.CONNECTOR + Vector2(0, 70)
 		await capture(viewport, "opening-connector")
 		ship.state.work_target = "connector"
@@ -43,6 +43,9 @@ func run() -> void:
 		for beat in ship.state.ANNOUNCEMENTS.size():
 			await capture(viewport, "report-%d" % beat)
 			ship.state.advance(ship.profile.transition_message_seconds, false, false, false, 6)
+		ship.state.advance(60, false, false, false, 6)
+		await capture(viewport, "report-awaiting-dismissal")
+		ship.dismiss_report()
 		await capture(viewport, "emergency")
 		ship.player.position = ship.Layout.DONOR + Vector2(0, 80)
 		await capture(viewport, "door-pump")

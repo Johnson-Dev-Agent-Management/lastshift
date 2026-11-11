@@ -22,7 +22,7 @@ var toggle_work := false
 var work_latched := false
 var work_active := false
 var work_task := "pump"
-var message := "Pre-jump check. Reach Cargo via the east shortcut or the lit main corridor to the south."
+var message := "Pre-jump check. Take Engineering's east service shortcut to Cargo."
 var phase := 0.0
 var drive_switch_pull := 0.0
 var drive_arm_flash := 0.0
@@ -35,6 +35,7 @@ var work_option: CheckButton
 var wall_segments: Array[Rect2] = []
 var systems_panel = SystemsPanel.new()
 var results_panel = Results.new()
+var report_continue := Button.new()
 var dev_overlay := false
 var ui_layer := CanvasLayer.new()
 
@@ -56,6 +57,16 @@ func _ready() -> void:
 	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui_layer.add_child(hud)
+	ui_layer.add_child(report_continue)
+	report_continue.text = "Begin emergency (E / Enter)"
+	report_continue.add_theme_font_size_override("font_size", 18)
+	report_continue.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	report_continue.offset_left = -200
+	report_continue.offset_right = 200
+	report_continue.offset_top = 86
+	report_continue.offset_bottom = 122
+	report_continue.pressed.connect(dismiss_report)
+	report_continue.hide()
 	build_menus()
 	systems_panel.ship = self
 	ui_layer.add_child(systems_panel)
@@ -205,7 +216,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		else:
 			toggle_pause()
 		return
-	if paused or confirming or systems_panel.visible or state.terminal() or state.stage == State.Stage.TRANSITION:
+	if state.stage == State.Stage.TRANSITION:
+		if not paused and event.is_action_pressed("interact"):
+			dismiss_report()
+		return
+	if paused or confirming or systems_panel.visible or state.terminal():
 		return
 	if event.is_action_pressed("map"):
 		map_open = not map_open
@@ -273,6 +288,21 @@ func toggle_pause() -> void:
 		resume_button.grab_focus()
 	else:
 		get_viewport().gui_release_focus()
+	refresh_report_button()
+
+func refresh_report_button() -> void:
+	var waiting: bool = state.awaiting_report_dismissal() and not paused
+	if waiting and not report_continue.visible:
+		report_continue.show()
+		report_continue.grab_focus()
+	elif not waiting:
+		report_continue.hide()
+
+func dismiss_report() -> void:
+	if paused or not state.dismiss_report(): return
+	report_continue.hide()
+	get_viewport().gui_release_focus()
+	feedback.confirm()
 
 func stop_work() -> void:
 	if work_active and task_progress(work_task) < 1.0:
@@ -306,6 +336,7 @@ func _physics_process(delta: float) -> void:
 	if state.stage == State.Stage.TRANSITION:
 		systems_panel.close()
 		map_open = false
+	refresh_report_button()
 	if state.terminal() and not results_panel.visible:
 		stop_work()
 		confirming = false
@@ -392,7 +423,8 @@ func prompt_title() -> String:
 			if state.repaired: return "COOLANT PUMP / " + state.pump_status() + " — repair permanent"
 			if state.motor == State.Motor.CARRIED: return "COOLANT PUMP   /   %s E to repair · %d%%" % ["Press" if toggle_work else "Hold", progress_percent()]
 			return "COOLANT PUMP   /   BROKEN — motor required"
-	return "MAIN CORRIDOR OPEN   /   Follow the floor lights"
+	if not state.shortcut_closed(): return "SERVICE SHORTCUT OPEN   /   Cargo–Engineering"
+	return "MAIN CORRIDOR OPEN   /   Marked by floor lights"
 
 func prompt_detail() -> String:
 	if state.terminal(): return state.recovery_advice()
@@ -455,6 +487,7 @@ func reset_run(replay_opening := false) -> void:
 	pause_panel.hide()
 	salvage_panel.hide()
 	results_panel.hide()
+	report_continue.hide()
 	get_viewport().gui_release_focus()
 	systems_panel.close()
 	feedback.reset()
@@ -477,24 +510,10 @@ func floor_light(area: Rect2) -> void:
 	draw_rect(area.grow(-2), Color("fff0ce"))
 
 func draw_floor_lights() -> void:
-	# Independent emergency circuits keep the entire normal route readable.
+	# Main corridor only: the opening uses the shorter service passage.
 	for x in range(160, 2050, 100):
 		floor_light(Rect2(x, 785, 44, 8))
 		floor_light(Rect2(x, 890, 44, 8))
-	# Paired strips start inside all five rooms and continue through their exits.
-	for lane in [Rect2(424, 440, 104, 340), Rect2(1664, 440, 104, 340),
-			Rect2(304, 940, 104, 320), Rect2(1024, 940, 104, 320), Rect2(1744, 940, 104, 320)]:
-		for y in range(int(lane.position.y), int(lane.end.y), 80):
-			# Leave the lower rooms' title band clear, then fit before the landmarks.
-			var light_y := 1140 if y == 1100 else y
-			var length := 24 if y == 1100 else 40
-			floor_light(Rect2(lane.position.x, light_y, 8, length))
-			floor_light(Rect2(lane.end.x, light_y, 8, length))
-	for marker in [Vector3(480, 570, 1), Vector3(1720, 570, 1),
-			Vector3(360, 1148, -1), Vector3(1080, 1148, -1), Vector3(1800, 1148, -1)]:
-		var tip := Vector2(marker.x, marker.y)
-		draw_polyline(PackedVector2Array([tip + Vector2(-12, -12 * marker.z), tip,
-			tip + Vector2(12, -12 * marker.z)]), Color("fff0ce"), 4)
 
 func _draw() -> void:
 	var font := ThemeDB.fallback_font
@@ -524,9 +543,6 @@ func _draw() -> void:
 	draw_rect(Rect2(552, 275, 120, 70), Color("38505c"))
 	machine_label(Vector2(550, 377), "POWER %d / %d" % [state.used_power(), profile.capacity])
 	# Cargo: crate silhouettes and donor, all floor decals, never solid blockers.
-	var hydraulic_line := PackedVector2Array([Layout.DONOR, Vector2(1760, 320), Vector2(1760, 275), Vector2(1430, 275), Vector2(1430, 302), Vector2(1120, 302)])
-	draw_polyline(hydraulic_line, Color("0e2029"), 10)
-	draw_polyline(hydraulic_line, Color("66716a") if state.shortcut_closed() else Color("bcab79"), 4)
 	for x in [1450, 1560, 1930]:
 		for y in [435, 515]:
 			if x == 1930 and y == 515:

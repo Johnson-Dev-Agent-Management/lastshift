@@ -90,7 +90,7 @@ func _draw() -> void:
 		text_at(Vector2(240, 314), lines[0], 27, INK, 800)
 		for i in range(1, lines.size()):
 			text_at(Vector2(240, 340 + i * 36), lines[i], 22, INK, 800)
-		text_at(Vector2(240, 507), "Resources held until control returns. Esc pauses this report.", 17, MUTED)
+		text_at(Vector2(240, 507), "Take your time. Resources stay held until you begin." if state.awaiting_report_dismissal() else "Resources held until control returns. Esc pauses this report.", 17, MUTED)
 		for i in state.ANNOUNCEMENTS.size():
 			draw_rect(Rect2(240 + i * 202, 527, 188, 4), (MINT if pre_jump else AMBER) if i <= state.announcement_index else Color("31434e"))
 	if state.terminal(): draw_rect(Rect2(0, 0, 1280, 720), Color(0, 0, 0, 0.5))

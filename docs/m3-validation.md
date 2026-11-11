@@ -1,13 +1,13 @@
 # M3 complete authored run: candidate and evidence
 
-Implemented on `feat/m3-authored-run` from merged M2 baseline `c076173`. Application **0.3.1**, profile **m3-candidate-01**. The design plan now records the requested satisfying full-charge visual/audio treatment under M5; its scope and mechanics remain unchanged. Godot and official export templates remain pinned to `4.6.3.stable.official.7d41c59c4` / `4.6.3.stable`; see [toolchain provenance](toolchain.md). This milestone completes the authored scenario and its outcomes. M4 difficulty/recovery tuning and M5 presentation work remain separate.
+Implemented on `feat/m3-authored-run` from merged M2 baseline `c076173`. Application **0.3.2**, profile **m3-candidate-01**. The design plan now records the requested satisfying full-charge visual/audio treatment under M5; its scope and mechanics remain unchanged. Godot and official export templates remain pinned to `4.6.3.stable.official.7d41c59c4` / `4.6.3.stable`; see [toolchain provenance](toolchain.md). This milestone completes the authored scenario and its outcomes. M4 difficulty/recovery tuning and M5 presentation work remain separate.
 
 ## Authored sequence and tuning
 
 | Beat / setting | Candidate behavior |
 | --- | --- |
 | Ordinary opening | Functioning pump; air/heat held; four accumulated seconds reseating Cargo's SERVICE connector, then Engineering cooling OFF → ON |
-| Emergency transition | Four report pages, four seconds each: scheduled jump, surge/isolation, evacuation/pod failure, way home; resources held; Escape pauses the report |
+| Emergency transition | Scheduled jump, surge/isolation and evacuation/pod failure pages last six seconds each; the final way-home page waits for E/Enter/click; resources held; Escape pauses the report |
 | Coolant fault | Fires once at the surge report, visibly stopping the pump; response clock starts when emergency control returns |
 | Existing repair / charging | Six accumulated seconds for pump; 120 seconds of actual powered charging; approved M2 rates retained |
 | Leak eligibility | Repaired pump for at least 40 active seconds, charge ≥30%, heat below 68 and heat-warning flag clear |
@@ -18,7 +18,7 @@ Implemented on `feat/m3-authored-run` from merged M2 baseline `c076173`. Applica
 | Escape | Full charge plus local E at the Bridge; resources continue until the request succeeds |
 | Retry | Fresh emergency by default; separate option replays the safe opening |
 
-The opening is player-paced rather than enforcing the plan's hypothetical 45–60 seconds with a wait. No lethal clocks run during learning or the 16-second report. The feedback pass expands the original eight-second report to make the scheduled jump and its consequences readable, without consuming emergency response time. A practiced player can finish the checklist faster. The leak adds a decision during the shortened charge; it does not lengthen the charge requirement. There are no random faults, patch inventory, repeated incidents or repair regression. The transition starts with a calm confirmation, then uses dim/amber presentation for the failure; camera shake and broader presentation/accessibility polish remain for M5.
+The opening is player-paced rather than enforcing the plan's hypothetical 45–60 seconds with a wait. No lethal clocks run during learning or the report. Its first three pages last six seconds each (18 seconds to the final page); the final page holds indefinitely until the player chooses Begin emergency. This preserves reading time without consuming emergency response time. A practiced player can finish the checklist faster. The leak adds a decision during the shortened charge; it does not lengthen the charge requirement. There are no random faults, patch inventory, repeated incidents or repair regression. The transition starts with a calm confirmation, then uses dim/amber presentation for the failure; camera shake and broader presentation/accessibility polish remain for M5.
 
 All existing M2 resource values remain unchanged: capacity 6, consumer costs 2/2/4; starting air/heat 100/38; air drain 0.08/s with life support and 0.22/s without; idle heat +0.10/s, charging +0.35/s, repaired cooling −0.42/s; reserve up to +25 once; warning 68/clear 62; cutoff 86/restart below 64; critical 92/clear below 88/grace 30s. With an open leak the air rates are 0.43/s and 0.57/s. Patching restores the ordinary rates without adding air. A full reserve buys about 58 or 44 seconds with the leak open; those are arithmetic margins, not measured player response.
 
@@ -73,11 +73,19 @@ Images go to `builds/screenshots-m3/`. Capture fixtures directly prepare states;
 
 ### 0.3.1 player-feedback pass
 
-Room-to-corridor fixtures now start beside the Engineering spawn and continue through all five rooms' permanent exits, with exit chevrons and brighter corridor strips. They remain independent of consumer power and salvage. The Cargo motor now belongs to a labeled hydraulic door pump connected to the shutter by a visible line. Prompts and the confirmation explain pressure loss, shutter closure and work-light isolation before committing. Cargo's SERVICE label sits beneath its connector, clear of the room title; door-pump and Bridge helm labels are centered using their actual text width in both states.
+In 0.3.1, room-to-corridor fixtures started beside the Engineering spawn and continued through all five rooms' permanent exits, with exit chevrons and brighter corridor strips. They remained independent of consumer power and salvage. The Cargo motor belongs to a labeled hydraulic door pump; that revision also drew a line to the shutter. Prompts and the confirmation explain pressure loss, shutter closure and work-light isolation before committing. Cargo's SERVICE label sits beneath its connector, clear of the room title; door-pump and Bridge helm labels are centered using their actual text width in both states.
 
 The pre-jump checklist now leads through four distinct report pages. The scheduled jump precedes the surge; the pump stops at that surge while response time remains held. Tests check that phase boundary, pause, report order and one-shot failure, then exercise the existing emergency/retry regressions. Scripted emergency outcomes and physical traversal measurements are unchanged. The plan records the requested satisfying blue completed-drive fill, READY label and completion cue for M5; that visual is not implemented in this pass.
 
-Actual Linux keyboard/mouse checks completed the connector/power checklist, observed the scheduled-jump and evacuation pages and returned to emergency control, then reviewed and accepted the hydraulic-motor salvage. New fixtures cover every room's lights, each report page, the salvage panel, door pump before/after removal, shutter closure and both helm labels at both target resolutions. Visual inspection prompted moving lower-room fixtures below the room-title band. Native Windows graphics/audio and human evaluation of the revised guidance remain local checks; export and CI results are recorded on the PR.
+Actual Linux keyboard/mouse checks completed the connector/power checklist, observed the scheduled-jump and evacuation pages and returned to emergency control, then reviewed and accepted the hydraulic-motor salvage. That revision's fixtures covered every room's lights, each report page, the salvage panel, door pump before/after removal, shutter closure and both helm labels at both target resolutions. Visual inspection prompted moving lower-room fixtures below the room-title band. Native Windows graphics/audio and human evaluation of the revised guidance remain local checks; export and CI results are recorded on the PR.
+
+### 0.3.2 guidance and report-pacing pass
+
+Room floor strips and exit chevrons are removed; only the main corridor retains floor lights. Opening directions now favor Engineering's east service shortcut to Cargo. The decorative line between the donor motor and shutter is removed, while its hydraulic explanation, salvage warning and permanent route remain intact.
+
+The first three report pages last six seconds each, up from four. The last page waits for **Begin emergency**, activated by fresh E, Enter or a mouse click. Resources and scenario clocks stay held until dismissal. Automated checks cover a 600-second final-page hold, rejection of early/paused/repeated dismissal, holding E through the sequence, pause/resume focus, E closing only the report, and Enter activation. The full M1/M2/M3 regression suites and scripted emergency policies still pass.
+
+Actual Linux keyboard/mouse operation traversed the shortcut, completed the connector/power checklist, observed the report waiting at 100 air / 38 heat, paused and resumed it, then clicked Begin emergency to restore control and start resource drain. Fresh fixtures at both target resolutions cover the uncluttered rooms, door pump without its floor line, and the waiting report. Visual inspection caught a button/footer overlap; the final button position leaves a clear gap. This was targeted interaction and rendering, not a new full-run balance playtest. Native Windows graphics/audio remain local checks; the updated export and CI identities are recorded on the PR.
 
 ## Next milestone and open evidence
 

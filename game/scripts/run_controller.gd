@@ -29,7 +29,7 @@ func _init(config: Resource = DEFAULT_PROFILE, with_opening := true) -> void:
 	if with_opening:
 		repaired = true
 		repair_elapsed = profile.repair_seconds
-		record("Pre-jump check. Reach Cargo via the east shortcut or the lit main corridor to the south.")
+		record("Pre-jump check. Take Engineering's east service shortcut to Cargo.")
 	else:
 		begin_emergency()
 
@@ -86,14 +86,13 @@ func step(working: bool, in_range: bool) -> void:
 				record("CONNECTOR SEATED — return to Engineering. Cycle cooling OFF then ON to finish the pre-jump check.")
 		return
 	if stage == Stage.TRANSITION:
+		if awaiting_report_dismissal(): return
 		transition_seconds += STEP
 		var index := mini(ANNOUNCEMENTS.size() - 1, int((transition_seconds + 0.000000001) / profile.transition_message_seconds))
 		if index != announcement_index:
 			announcement_index = index
 			if index == 1: fail_coolant()
 			record(ANNOUNCEMENTS[index])
-		if transition_seconds + 0.000000001 >= ANNOUNCEMENTS.size() * profile.transition_message_seconds:
-			begin_emergency()
 		return
 	if stage != Stage.EMERGENCY: return
 	if working and in_range and work_target == "leak" and leak_active:
@@ -116,6 +115,14 @@ func step(working: bool, in_range: bool) -> void:
 			stage = Stage.WON
 			drive_powered = false
 			record("SHIFT COMPLETE — jump successful. You brought the ship home.")
+
+func awaiting_report_dismissal() -> bool:
+	return stage == Stage.TRANSITION and announcement_index == ANNOUNCEMENTS.size() - 1
+
+func dismiss_report() -> bool:
+	if not awaiting_report_dismissal() or is_paused: return false
+	begin_emergency()
+	return true
 
 func fail_coolant() -> void:
 	if scenario.coolant_fired: return

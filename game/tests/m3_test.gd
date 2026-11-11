@@ -67,6 +67,7 @@ func check_opening() -> void:
 	expect(state.stage == Run.Stage.OPENING, "Power lesson requires restoring cooling")
 	state.set_power("cooling", true)
 	expect(state.stage == Run.Stage.TRANSITION and state.announcement_index == 0 and state.repaired, "Completed checklist first verifies cooling before the scheduled jump")
+	expect(not state.dismiss_report(), "Early input cannot skip report pages")
 	tick(state, 1)
 	state.is_paused = true
 	frozen = state.snapshot()
@@ -80,7 +81,15 @@ func check_opening() -> void:
 	for entry in state.events:
 		if entry["event"] in Run.ANNOUNCEMENTS: announcements.append(entry["event"])
 	expect(announcements == Array(Run.ANNOUNCEMENTS), "Scheduled jump, fault, evacuation/pod failure and way home appear in order once")
-	expect(state.stage == Run.Stage.EMERGENCY and not state.repaired and state.air == 100 and state.active_seconds == 0, "Emergency starts after transition without consuming response time")
+	expect(state.awaiting_report_dismissal(), "Last report page waits for player dismissal")
+	frozen = state.snapshot()
+	tick(state, 600)
+	expect(state.snapshot() == frozen, "Reading the final page never consumes resources or advances scenario clocks")
+	state.is_paused = true
+	expect(not state.dismiss_report(), "Paused report cannot be dismissed")
+	state.is_paused = false
+	expect(state.dismiss_report() and not state.dismiss_report(), "Final report dismisses exactly once")
+	expect(state.stage == Run.Stage.EMERGENCY and not state.repaired and state.air == 100 and state.active_seconds == 0, "Emergency begins only after acknowledgement without consuming response time")
 	state.begin_emergency()
 	expect(count_events(state, "GET HOME") == 1, "Coolant fault fires once")
 
@@ -182,6 +191,7 @@ func check_cadence() -> void:
 
 func press(key: Key, down := true) -> void:
 	var event := InputEventKey.new()
+	event.keycode = key
 	event.physical_keycode = key
 	event.pressed = down
 	Input.parse_input_event(event)
@@ -232,8 +242,19 @@ func check_scene() -> void:
 	await frames(60)
 	expect(ship.state.transition_seconds == seconds, "Scene pause freezes transition")
 	tap(KEY_ESCAPE)
+	press(KEY_E)
 	await frames(int(PROFILE.transition_message_seconds * Run.ANNOUNCEMENTS.size() * 60) + 10)
-	expect(ship.state.stage == Run.Stage.EMERGENCY and not ship.player.frozen, "Control returns to emergency without stale panel state")
+	expect(ship.state.awaiting_report_dismissal() and ship.report_continue.visible and ship.player.frozen and ship.state.air == 100, "Held interaction through report cannot dismiss its final page")
+	press(KEY_E, false)
+	tap(KEY_ESCAPE)
+	expect(not ship.report_continue.visible, "Pause hides report action beneath its menu")
+	tap(KEY_E)
+	expect(ship.state.awaiting_report_dismissal(), "Paused E cannot begin the emergency")
+	tap(KEY_ESCAPE)
+	expect(ship.report_continue.has_focus(), "Resume restores keyboard focus to report action")
+	tap(KEY_E)
+	await frames(2)
+	expect(ship.state.stage == Run.Stage.EMERGENCY and not ship.player.frozen and not ship.report_continue.visible and not ship.systems_panel.visible, "Fresh E closes only the report and returns control without opening equipment")
 	tap(KEY_F7)
 	await frames(2)
 	expect(ship.state.leak_active, "Developer leak beat uses scenario progression")
@@ -278,6 +299,14 @@ func check_scene() -> void:
 	ship.reset_run(true)
 	await frames(2)
 	expect(ship.state.stage == Run.Stage.OPENING and not ship.state.connector_ready and not ship.state.power_practiced and ship.state.repaired and not ship.results_panel.visible, "Replay opening resets checklist and functioning ship")
+	ship.state.connector_ready = true
+	ship.state.set_power("cooling", false)
+	ship.state.set_power("cooling", true)
+	tick(ship.state, PROFILE.transition_message_seconds * Run.ANNOUNCEMENTS.size())
+	await frames(2)
+	tap(KEY_ENTER)
+	await frames(2)
+	expect(ship.state.stage == Run.Stage.EMERGENCY and not ship.report_continue.visible, "Focused report button also accepts Enter")
 	ship.queue_free()
 	await process_frame
 
