@@ -47,9 +47,10 @@ func advance(delta: float, working: bool, in_range: bool, paused: bool, duration
 	if not working or not in_range or repaired or motor != Motor.CARRIED:
 		return
 	repair_elapsed = minf(repair_elapsed + maxf(delta, 0.0), duration)
-	if repair_elapsed >= duration:
+	if repair_elapsed + 0.000000001 >= duration:
+		repair_elapsed = duration
 		repaired = true
 		motor = Motor.INSTALLED
-		record("PUMP REPAIRED — circulation restored. Motor installed once; repair is permanent.")
+		record("PUMP REPAIRED — motor installed. Repair is permanent; cooling requires power.")
 	else:
 		changed.emit()

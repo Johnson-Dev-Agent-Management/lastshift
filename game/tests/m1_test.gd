@@ -1,7 +1,7 @@
 extends SceneTree
 const State = preload("res://scripts/repair_state.gd")
 const Layout = preload("res://scripts/layout.gd")
-const PROFILE = preload("res://m1_profile.tres")
+const PROFILE = preload("res://balance_profile.tres")
 var failures := 0
 var ship: Node2D
 
