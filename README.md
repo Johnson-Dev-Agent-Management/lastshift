@@ -1,8 +1,8 @@
 # Last Shift
 
-An aging cargo ship is your only way home. Godot 4.6.3, GDScript, Compatibility renderer. The [design baseline](docs/last-shift-game-plan.md) defines the first playable; **M0–M2** are implemented. Salvage a motor, repair cooling, arm the drive locally, and trade limited power between air, cooling and charging. Repairs and charge persist.
+An aging cargo ship is your only way home. Godot 4.6.3, GDScript, Compatibility renderer. The [design baseline](docs/last-shift-game-plan.md) defines the first playable; **M0–M3** are implemented. Finish a safe maintenance checklist, survive the failed jump, salvage a motor, restore cooling, and manage air, heat and power while charging. An authored Cargo leak introduces a repair-or-endure decision. Repairs and charge persist. At full charge, return to the bridge and jump home.
 
-This is a systems prototype. M3 adds the ordinary opening, authored incidents, final jump and results. The current bridge interaction verifies escape readiness; air depletion or sustained critical heat stops the simulation. Candidate rates are not validated difficulty.
+Version **0.3.0** is a complete authored-run prototype with victory, cause-specific failure results, emergency retry and optional opening replay. Powered charging still takes about **120 seconds**; M3 preserves the approved shorter charge and existing air/heat rates. Candidate tuning is not validated difficulty. Next is M4: human playtesting and recovery tuning.
 
 ## Development
 
@@ -32,6 +32,6 @@ python3 scripts/dev.py check --clean
 python3 scripts/dev.py export-windows
 ```
 
-On Windows substitute `py -3` for `python3`. Checks cover engine identity, clean import, startup, M1 regressions and M2 simulation/local controls. Logs and scripted-run measurements go to `builds/`. `--clean` deletes only Godot's generated `game/.godot/` cache. The Windows ZIP is `builds/LastShift-M2-Windows-x86_64.zip`; extract it and run `LastShift.exe` without the editor. Exports are unsigned. Builds and tool downloads stay out of Git.
+On Windows substitute `py -3` for `python3`. Checks cover engine identity, clean import, startup, M1/M2 regressions and M3 scenario/outcome/retry behavior. Logs and scripted-run measurements go to `builds/`. `--clean` deletes only Godot's generated `game/.godot/` cache. The Windows ZIP is `builds/LastShift-M3-Windows-x86_64.zip`; extract it and run `LastShift.exe` without the editor. Exports are unsigned. Builds and tool downloads stay out of Git.
 
-[M2 hands-on controls and test route](docs/playtest-m2.md) · [candidate tuning and validation](docs/m2-validation.md) · [historical M0/M1 evidence](docs/m0-m1-validation.md) · [credits](docs/credits.md)
+[M3 hands-on controls and test route](docs/playtest-m3.md) · [M3 candidate and validation](docs/m3-validation.md) · [historical M2 evidence](docs/m2-validation.md) · [historical M0/M1 evidence](docs/m0-m1-validation.md) · [credits](docs/credits.md)

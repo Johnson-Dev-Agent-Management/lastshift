@@ -18,6 +18,7 @@ var critical := false
 var critical_elapsed := 0.0
 var is_paused := false
 var failure := ""
+var escaped := false
 var accumulator := 0.0
 
 func _init(config: Resource = DEFAULT_PROFILE) -> void:
@@ -28,17 +29,20 @@ func _init(config: Resource = DEFAULT_PROFILE) -> void:
 func used_power() -> int:
 	return (profile.life_support_demand if life_support_powered else 0) + (profile.cooling_demand if cooling_powered else 0) + (profile.drive_demand if drive_powered else 0)
 
+func terminal() -> bool:
+	return escaped or not failure.is_empty()
+
 func cooling_active() -> bool:
-	return repaired and cooling_powered and failure.is_empty()
+	return repaired and cooling_powered and not terminal()
 
 func charging() -> bool:
-	return drive_powered and drive_armed and repaired and not drive_cooling_down and charge < 100 and failure.is_empty()
+	return drive_powered and drive_armed and repaired and not drive_cooling_down and charge < 100 and not terminal()
 
 func air_rate() -> float:
-	return -(profile.powered_air_drain if life_support_powered else profile.unpowered_air_drain) if failure.is_empty() else 0.0
+	return -(profile.powered_air_drain if life_support_powered else profile.unpowered_air_drain) if not terminal() else 0.0
 
 func heat_rate() -> float:
-	if not failure.is_empty():
+	if terminal():
 		return 0.0
 	return profile.idle_heat_rate + (profile.charging_heat_rate if charging() else 0.0) - (profile.cooling_rate if cooling_active() else 0.0)
 
@@ -57,6 +61,7 @@ func pump_status() -> String:
 
 func command_blocked() -> String:
 	if is_paused: return "Paused — resume before operating equipment."
+	if escaped: return "Shift complete. Start another shift from the results screen."
 	if not failure.is_empty(): return "Simulation stopped — restart from the pause menu."
 	return ""
 
@@ -118,16 +123,16 @@ func use_reserve() -> String:
 	return ""
 
 func escape_ready() -> bool:
-	return charge >= 100 and failure.is_empty()
+	return charge >= 100 and not terminal()
 
 func advance(delta: float, working: bool, in_range: bool, paused: bool, _duration: float) -> void:
-	if paused or is_paused or not failure.is_empty() or not is_finite(delta) or delta <= 0:
+	if paused or is_paused or terminal() or not is_finite(delta) or delta <= 0:
 		return
 	accumulator += delta
 	while accumulator + 0.000000001 >= STEP:
 		accumulator = maxf(0.0, accumulator - STEP)
 		step(working, in_range)
-		if not failure.is_empty():
+		if terminal():
 			accumulator = 0.0
 			break
 	changed.emit()
@@ -175,10 +180,10 @@ func step(working: bool, in_range: bool) -> void:
 			record("RETURN TO BRIDGE — JUMP READY. Full charge retained; drive power released.")
 
 func stop_simulation(cause: String) -> void:
-	if not failure.is_empty(): return
+	if terminal(): return
 	failure = cause
 	drive_powered = false
-	record("SIMULATION STOPPED: %s. Restart from pause. M3 adds the full ending." % cause)
+	record("SHIFT ENDED: %s." % cause)
 
 func snapshot() -> Dictionary:
 	return {"seconds": snappedf(active_seconds, 0.01), "air": air, "heat": heat, "charge": charge,
@@ -186,7 +191,7 @@ func snapshot() -> Dictionary:
 		"life_support": life_support_powered, "cooling": cooling_powered, "drive": drive_powered,
 		"armed": drive_armed, "cooldown": drive_cooling_down, "critical_seconds": critical_elapsed,
 		"pump_repaired": repaired, "repair_seconds": repair_elapsed, "motor": motor,
-		"reserve_used": reserve_used, "failure": failure}
+		"reserve_used": reserve_used, "failure": failure, "escaped": escaped}
 
 func record(message: String) -> void:
 	var entry := snapshot()

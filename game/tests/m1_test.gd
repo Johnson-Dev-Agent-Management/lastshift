@@ -44,6 +44,7 @@ func run() -> void:
 	check_reachability(true)
 	ship = load("res://scenes/ship.tscn").instantiate()
 	root.add_child(ship)
+	ship.reset_run()
 	await process_frame
 	await physics_frame
 	await check_movement_keys()
