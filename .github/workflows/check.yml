@@ -1,4 +1,4 @@
-name: Godot M0–M3
+name: Godot M0–M4
 on: [push, pull_request]
 permissions:
   contents: read
@@ -18,9 +18,10 @@ jobs:
       - run: python scripts/dev.py export-windows
       - uses: actions/upload-artifact@v4
         with:
-          name: LastShift-M3-${{ matrix.os }}
+          name: LastShift-M4-${{ matrix.os }}
           path: |
-            builds/LastShift-M3-Windows-x86_64.zip
+            builds/LastShift-M4-Windows-x86_64.zip
             builds/*.log
             builds/m2-scripted-runs.json
             builds/m3-scripted-runs.json
+            builds/m4-physical-runs.json

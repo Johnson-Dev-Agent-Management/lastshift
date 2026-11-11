@@ -1,6 +1,6 @@
 extends Resource
 ## Candidate tuning, not validated difficulty. Rates are normalized units/second.
-@export var profile_id := "m3-candidate-01"
+@export var profile_id := "m4-candidate-01"
 @export var walk_speed := 180.0
 @export var repair_seconds := 6.0
 @export var interaction_range := 100.0
@@ -24,7 +24,7 @@ extends Resource
 @export var drive_restart := 64.0
 @export var critical_enter := 92.0
 @export var critical_clear := 88.0
-@export var critical_grace_seconds := 30.0
+@export var critical_grace_seconds := 65.0
 @export var connector_seconds := 4.0
 @export var transition_message_seconds := 6.0
 @export var leak_charge_gate := 30.0
