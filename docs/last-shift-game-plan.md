@@ -288,6 +288,8 @@ Playtest careful, aggressive, and imperfect approaches. Tune warning windows, tr
 
 Unify room art, terminology, machine feedback, alert priorities, sound, HUD scaling, and opening/ending transitions. Add the agreed accessibility options and verify them.
 
+Make full jump charge feel satisfying: after the orange charge ring completes, fill or illuminate the drive's center in blue, retain a clear **READY** label, and play a brief completion cue. The finished state should remain obvious without relying on color or sound alone. This is presentation of the existing 100% state; it adds no charging time or extra activation step.
+
 **Exit evidence:** readable scenes at both target resolutions, understandable state without audio or color alone, perceptible relief, and no competing alarm wall.
 
 ### M6 First playable release candidate

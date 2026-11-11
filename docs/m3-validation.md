@@ -1,14 +1,14 @@
 # M3 complete authored run: candidate and evidence
 
-Implemented on `feat/m3-authored-run` from merged M2 baseline `c076173`. Application **0.3.0**, profile **m3-candidate-01**. The original design plan remains unchanged. Godot and official export templates remain pinned to `4.6.3.stable.official.7d41c59c4` / `4.6.3.stable`; see [toolchain provenance](toolchain.md). This milestone completes the authored scenario and its outcomes. M4 difficulty/recovery tuning and M5 presentation work remain separate.
+Implemented on `feat/m3-authored-run` from merged M2 baseline `c076173`. Application **0.3.1**, profile **m3-candidate-01**. The design plan now records the requested satisfying full-charge visual/audio treatment under M5; its scope and mechanics remain unchanged. Godot and official export templates remain pinned to `4.6.3.stable.official.7d41c59c4` / `4.6.3.stable`; see [toolchain provenance](toolchain.md). This milestone completes the authored scenario and its outcomes. M4 difficulty/recovery tuning and M5 presentation work remain separate.
 
 ## Authored sequence and tuning
 
 | Beat / setting | Candidate behavior |
 | --- | --- |
 | Ordinary opening | Functioning pump; air/heat held; four accumulated seconds reseating Cargo's SERVICE connector, then Engineering cooling OFF → ON |
-| Emergency transition | Four ordered announcements, two seconds each; controls and resources held; Escape pauses the report |
-| Coolant fault | Fires once when emergency control returns; response clock starts then |
+| Emergency transition | Four report pages, four seconds each: scheduled jump, surge/isolation, evacuation/pod failure, way home; resources held; Escape pauses the report |
+| Coolant fault | Fires once at the surge report, visibly stopping the pump; response clock starts when emergency control returns |
 | Existing repair / charging | Six accumulated seconds for pump; 120 seconds of actual powered charging; approved M2 rates retained |
 | Leak eligibility | Repaired pump for at least 40 active seconds, charge ≥30%, heat below 68 and heat-warning flag clear |
 | Leak warning / onset | Six-second lead-in; eligibility rechecked at onset, so unsafe heat delays it |
@@ -18,7 +18,7 @@ Implemented on `feat/m3-authored-run` from merged M2 baseline `c076173`. Applica
 | Escape | Full charge plus local E at the Bridge; resources continue until the request succeeds |
 | Retry | Fresh emergency by default; separate option replays the safe opening |
 
-The opening is player-paced rather than enforcing the plan's hypothetical 45–60 seconds with a wait. No lethal clocks run during learning or the eight-second report. A practiced player can finish the checklist faster. The leak adds a decision during the shortened charge; it does not lengthen the charge requirement. There are no random faults, patch inventory, repeated incidents or repair regression. The transition uses dim/amber presentation and text; camera shake and broader presentation/accessibility polish remain for M5.
+The opening is player-paced rather than enforcing the plan's hypothetical 45–60 seconds with a wait. No lethal clocks run during learning or the 16-second report. The feedback pass expands the original eight-second report to make the scheduled jump and its consequences readable, without consuming emergency response time. A practiced player can finish the checklist faster. The leak adds a decision during the shortened charge; it does not lengthen the charge requirement. There are no random faults, patch inventory, repeated incidents or repair regression. The transition starts with a calm confirmation, then uses dim/amber presentation for the failure; camera shake and broader presentation/accessibility polish remain for M5.
 
 All existing M2 resource values remain unchanged: capacity 6, consumer costs 2/2/4; starting air/heat 100/38; air drain 0.08/s with life support and 0.22/s without; idle heat +0.10/s, charging +0.35/s, repaired cooling −0.42/s; reserve up to +25 once; warning 68/clear 62; cutoff 86/restart below 64; critical 92/clear below 88/grace 30s. With an open leak the air rates are 0.43/s and 0.57/s. Patching restores the ordinary rates without adding air. A full reserve buys about 58 or 44 seconds with the leak open; those are arithmetic margins, not measured player response.
 
@@ -63,13 +63,21 @@ The Linux Compatibility build was operated with actual keyboard/mouse input on t
 
 A separate targeted pass used F7's prepared leak state. The agent held work to 30%, paused, resumed and sealed the hull; air drain visibly returned from 0.43/s to 0.08/s. It then walked the permanent route back to Engineering, explicitly switched life support off and drive on, waited for charge completion, restored life support, walked to the Bridge and pressed E. SHIFT COMPLETE appeared with frozen resources. Keyboard Enter retried directly into a fresh emergency; the pause menu's opening replay restored the safe checklist. This used a developer setup and includes tool/inspection delays: it is not an unaided full-shift or balance playtest.
 
-`game/tests/capture.gd` rendered opening/map/connector/power, the four-message report, emergency, leak warning/active/partial/sealed, ready bridge, victory, air-loss and heat-loss fixtures at exact **1280×720 and 1920×1080**. Transition, leak and outcome layouts were visually inspected. A decorative crate overlapped the hull marker; it was removed and fresh renders confirmed separation. Reproduce in a graphical Desktop terminal:
+`game/tests/capture.gd` rendered opening/map/connector/power, the report, emergency, leak warning/active/partial/sealed, ready bridge, victory, air-loss and heat-loss fixtures at exact **1280×720 and 1920×1080**. Transition, leak and outcome layouts were visually inspected. A decorative crate overlapped the hull marker; it was removed and fresh renders confirmed separation. Reproduce in a graphical Desktop terminal:
 
 ```sh
 python3 scripts/dev.py run --script res://tests/capture.gd
 ```
 
 Images go to `builds/screenshots-m3/`. Capture fixtures directly prepare states; their outcome times are not playtest measurements. Audio playback state and stopping are checked automatically, but the cloud desktop had no usable ALSA output device and fell back to a dummy driver. Audible cues/mix were not heard. A Godot shutdown warning reports one `AudioStreamWAV`/`AudioStreamPlaybackWAV` reference pair when quitting with a loop active, including the opening startup smoke run; gameplay suites pass without that warning. Explicit stop-on-exit is included, but does not clear that engine shutdown diagnostic in this environment. VSync is also unsupported by the cloud's software renderer. These do not establish behavior on a native audio/GPU driver.
+
+### 0.3.1 player-feedback pass
+
+Room-to-corridor fixtures now start beside the Engineering spawn and continue through all five rooms' permanent exits, with exit chevrons and brighter corridor strips. They remain independent of consumer power and salvage. The Cargo motor now belongs to a labeled hydraulic door pump connected to the shutter by a visible line. Prompts and the confirmation explain pressure loss, shutter closure and work-light isolation before committing. Cargo's SERVICE label sits beneath its connector, clear of the room title; door-pump and Bridge helm labels are centered using their actual text width in both states.
+
+The pre-jump checklist now leads through four distinct report pages. The scheduled jump precedes the surge; the pump stops at that surge while response time remains held. Tests check that phase boundary, pause, report order and one-shot failure, then exercise the existing emergency/retry regressions. Scripted emergency outcomes and physical traversal measurements are unchanged. The plan records the requested satisfying blue completed-drive fill, READY label and completion cue for M5; that visual is not implemented in this pass.
+
+Actual Linux keyboard/mouse checks completed the connector/power checklist, observed the scheduled-jump and evacuation pages and returned to emergency control, then reviewed and accepted the hydraulic-motor salvage. New fixtures cover every room's lights, each report page, the salvage panel, door pump before/after removal, shutter closure and both helm labels at both target resolutions. Visual inspection prompted moving lower-room fixtures below the room-title band. Native Windows graphics/audio and human evaluation of the revised guidance remain local checks; export and CI results are recorded on the PR.
 
 ## Next milestone and open evidence
 

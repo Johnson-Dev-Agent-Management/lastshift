@@ -2,7 +2,7 @@
 
 An aging cargo ship is your only way home. Godot 4.6.3, GDScript, Compatibility renderer. The [design baseline](docs/last-shift-game-plan.md) defines the first playable; **M0–M3** are implemented. Finish a safe maintenance checklist, survive the failed jump, salvage a motor, restore cooling, and manage air, heat and power while charging. An authored Cargo leak introduces a repair-or-endure decision. Repairs and charge persist. At full charge, return to the bridge and jump home.
 
-Version **0.3.0** is a complete authored-run prototype with victory, cause-specific failure results, emergency retry and optional opening replay. Powered charging still takes about **120 seconds**; M3 preserves the approved shorter charge and existing air/heat rates. Candidate tuning is not validated difficulty. Next is M4: human playtesting and recovery tuning.
+Version **0.3.1** is a complete authored-run prototype with victory, cause-specific failure results, emergency retry and optional opening replay. Room floor lights guide the permanent route; the pre-jump report explains the emergency, and Cargo's door hydraulics explain the salvage cost. Powered charging still takes about **120 seconds**; M3 preserves the approved shorter charge and existing air/heat rates. Candidate tuning is not validated difficulty. Next is M4: human playtesting and recovery tuning.
 
 ## Development
 

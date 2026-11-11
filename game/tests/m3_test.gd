@@ -66,18 +66,20 @@ func check_opening() -> void:
 	state.set_power("cooling", false)
 	expect(state.stage == Run.Stage.OPENING, "Power lesson requires restoring cooling")
 	state.set_power("cooling", true)
-	expect(state.stage == Run.Stage.TRANSITION, "Completed checklist starts jump failure")
+	expect(state.stage == Run.Stage.TRANSITION and state.announcement_index == 0 and state.repaired, "Completed checklist first verifies cooling before the scheduled jump")
 	tick(state, 1)
 	state.is_paused = true
 	frozen = state.snapshot()
 	tick(state, 100)
 	expect(state.snapshot() == frozen, "Pause freezes announcement clock")
 	state.is_paused = false
-	tick(state, 7)
+	tick(state, PROFILE.transition_message_seconds - 1)
+	expect(state.announcement_index == 1 and not state.repaired and state.scenario.coolant_fired and state.air == 100 and state.active_seconds == 0, "Surge stops the pump after its pre-jump beat without spending response time")
+	tick(state, PROFILE.transition_message_seconds * (Run.ANNOUNCEMENTS.size() - 1))
 	var announcements: Array[String] = []
 	for entry in state.events:
 		if entry["event"] in Run.ANNOUNCEMENTS: announcements.append(entry["event"])
-	expect(announcements == Array(Run.ANNOUNCEMENTS), "Evacuation, dead pod and one life sign appear in exact order once")
+	expect(announcements == Array(Run.ANNOUNCEMENTS), "Scheduled jump, fault, evacuation/pod failure and way home appear in order once")
 	expect(state.stage == Run.Stage.EMERGENCY and not state.repaired and state.air == 100 and state.active_seconds == 0, "Emergency starts after transition without consuming response time")
 	state.begin_emergency()
 	expect(count_events(state, "GET HOME") == 1, "Coolant fault fires once")
@@ -230,7 +232,7 @@ func check_scene() -> void:
 	await frames(60)
 	expect(ship.state.transition_seconds == seconds, "Scene pause freezes transition")
 	tap(KEY_ESCAPE)
-	await frames(490)
+	await frames(int(PROFILE.transition_message_seconds * Run.ANNOUNCEMENTS.size() * 60) + 10)
 	expect(ship.state.stage == Run.Stage.EMERGENCY and not ship.player.frozen, "Control returns to emergency without stale panel state")
 	tap(KEY_F7)
 	await frames(2)

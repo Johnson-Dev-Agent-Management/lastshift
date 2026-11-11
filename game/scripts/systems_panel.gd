@@ -88,7 +88,7 @@ func refresh() -> void:
 	summary.text = "POWER %d / %d   ·   AIR %.1f   ·   HEAT %.1f   ·   CHARGE %.1f%%" % [state.used_power(), profile.capacity, state.air, state.heat, state.charge]
 	detail.text = "Time is running. Close this panel, then Esc to pause.\nDrive: " + state.drive_status() if power_mode else "Time is running. One use only; the preview updates to the actual available gain."
 	var opening: bool = state.stage == ship.State.Stage.OPENING
-	if opening: detail.text = "SAFE CHECKLIST · no resource danger.\nReseat the Cargo connector, then switch cooling OFF and ON."
+	if opening: detail.text = "PRE-JUMP CHECK · no resource danger.\nCycle cooling OFF then ON to complete the scheduled-jump checks."
 	for consumer: String in buttons:
 		var button: Button = buttons[consumer]
 		button.visible = power_mode

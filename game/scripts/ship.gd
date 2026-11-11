@@ -22,7 +22,7 @@ var toggle_work := false
 var work_latched := false
 var work_active := false
 var work_task := "pump"
-var message := "Last shift checklist: reseat the service connector in Cargo. No resource danger yet."
+var message := "Pre-jump check. Reach Cargo via the east shortcut or the lit main corridor to the south."
 var phase := 0.0
 var drive_switch_pull := 0.0
 var drive_arm_flash := 0.0
@@ -95,12 +95,12 @@ func add_solid(area: Rect2) -> void:
 	add_child(body)
 
 func build_menus() -> void:
-	salvage_panel = panel(Vector2(600, 262))
+	salvage_panel = panel(Vector2(720, 340))
 	var box := menu_box(salvage_panel)
-	menu_label(box, "SALVAGE CARGO MOTOR?", 25)
-	menu_label(box, "Cost: the service shortcut closes and its work light goes out.\nThe permanent corridor stays lit and open.\nThe motor will restore the Engineering coolant pump.", 18)
+	menu_label(box, "SALVAGE SERVICE-DOOR MOTOR?", 25)
+	menu_label(box, "This motor pressurizes the Cargo service-door hydraulics.\nRemoving it closes the safety shutter; it cannot reopen.\nIsolating the door assembly also cuts its work light.\nThe main corridor stays lit and open.\nInstall the motor in Engineering's coolant pump.", 18)
 	var confirm := Button.new()
-	confirm.text = "Salvage motor — accept shortcut closure"
+	confirm.text = "Take motor — close the service shutter"
 	confirm.pressed.connect(confirm_salvage)
 	box.add_child(confirm)
 	cancel_button = Button.new()
@@ -386,18 +386,18 @@ func prompt_title() -> String:
 		"drive": return "JUMP DRIVE / " + state.drive_status() + (" · E to arm" if not state.drive_armed else "")
 		"reserve": return "EMERGENCY AIR / " + ("EMPTY" if state.reserve_used else "E to preview +%.2f air" % state.reserve_gain())
 		"bridge": return "BRIDGE / " + ("E to initiate JUMP" if state.escape_ready() else "Drive charge required")
-		"donor": return "CARGO DONOR MOTOR   /   E to review salvage"
+		"donor": return "SERVICE-DOOR PUMP MOTOR   /   E to review salvage"
 		"motor": return "MOTOR ON DECK   /   E to pick up"
 		"pump":
 			if state.repaired: return "COOLANT PUMP / " + state.pump_status() + " — repair permanent"
 			if state.motor == State.Motor.CARRIED: return "COOLANT PUMP   /   %s E to repair · %d%%" % ["Press" if toggle_work else "Hold", progress_percent()]
 			return "COOLANT PUMP   /   BROKEN — motor required"
-	return "PERMANENT ROUTE OPEN   /   Follow the floor lights"
+	return "MAIN CORRIDOR OPEN   /   Follow the floor lights"
 
 func prompt_detail() -> String:
 	if state.terminal(): return state.recovery_advice()
 	if state.stage == State.Stage.OPENING:
-		return "Safe checklist: reseat the Cargo connector, then cycle Engineering cooling OFF and ON."
+		return "Before the scheduled jump: reseat Cargo's connector, then cycle Engineering cooling OFF and ON."
 	match target:
 		"leak": return "Built-in repair tool · %.0fs total · progress retained · removes %.2f air loss per second." % [profile.patch_seconds, profile.leak_drain]
 		"power": return "Life support slows air loss. Cooling removes heat. Drive charging requires a power tradeoff."
@@ -407,7 +407,7 @@ func prompt_detail() -> String:
 			return "Pull the switch here, then allocate power in Engineering. Charge survives power loss and heat cutoff."
 		"reserve": return "One use. Preview shows the capped gain; full air never wastes the reserve."
 		"bridge": return "Manual jump requires full charge. Air and heat continue until the jump succeeds."
-		"donor": return "Cost: closes the service shortcut and turns off its work light. Main route stays open."
+		"donor": return "Motor holds the shutter open through hydraulic pressure. Removing it closes the shortcut."
 		"motor": return "One motor. Carry it to Engineering. Dropped parts never block the route."
 		"pump":
 			if state.repaired: return "Heat trend: %+.2f /s. Cooling requires power; this repair will not fail again." % state.heat_rate()
@@ -419,10 +419,11 @@ func sync_state() -> void:
 	queue_redraw()
 
 func on_event(value: String) -> void:
-	message = value
+	# Full report pages stay in the event log; the narrow HUD shows their heading.
+	message = value.get_slice("\n", 0)
 	if value.begins_with("PUMP REPAIRED"):
 		feedback.confirm(true)
-	elif value.begins_with("HULL SEALED") or value.begins_with("CONNECTOR SEATED"):
+	elif value.begins_with("HULL SEALED") or value.begins_with("CONNECTOR SEATED") or value.begins_with("COOLING VERIFIED"):
 		feedback.confirm(true)
 	elif value.begins_with("HULL LEAK") or value.begins_with("CARGO SEAL") or value.begins_with("JUMP FAILED"):
 		feedback.alert()
@@ -468,6 +469,33 @@ func save_log() -> void:
 		file.store_string(JSON.stringify({"milestone": "M3", "version": ProjectSettings.get_setting("application/config/version"), "engine": Engine.get_version_info()["string"], "profile": profile.profile_id, "events": state.events, "snapshot": state.snapshot()}, "\t"))
 		message = "Local event log: " + ProjectSettings.globalize_path("user://m3-events.json")
 
+func floor_light(area: Rect2) -> void:
+	# Static emissive-looking fixtures work in Compatibility without a light pass.
+	draw_rect(area.grow(8), Color(1.0, 0.73, 0.4, 0.09))
+	draw_rect(area.grow(3), Color("0b1a23"))
+	draw_rect(area, Color("efbb70"))
+	draw_rect(area.grow(-2), Color("fff0ce"))
+
+func draw_floor_lights() -> void:
+	# Independent emergency circuits keep the entire normal route readable.
+	for x in range(160, 2050, 100):
+		floor_light(Rect2(x, 785, 44, 8))
+		floor_light(Rect2(x, 890, 44, 8))
+	# Paired strips start inside all five rooms and continue through their exits.
+	for lane in [Rect2(424, 440, 104, 340), Rect2(1664, 440, 104, 340),
+			Rect2(304, 940, 104, 320), Rect2(1024, 940, 104, 320), Rect2(1744, 940, 104, 320)]:
+		for y in range(int(lane.position.y), int(lane.end.y), 80):
+			# Leave the lower rooms' title band clear, then fit before the landmarks.
+			var light_y := 1140 if y == 1100 else y
+			var length := 24 if y == 1100 else 40
+			floor_light(Rect2(lane.position.x, light_y, 8, length))
+			floor_light(Rect2(lane.end.x, light_y, 8, length))
+	for marker in [Vector3(480, 570, 1), Vector3(1720, 570, 1),
+			Vector3(360, 1148, -1), Vector3(1080, 1148, -1), Vector3(1800, 1148, -1)]:
+		var tip := Vector2(marker.x, marker.y)
+		draw_polyline(PackedVector2Array([tip + Vector2(-12, -12 * marker.z), tip,
+			tip + Vector2(12, -12 * marker.z)]), Color("fff0ce"), 4)
+
 func _draw() -> void:
 	var font := ThemeDB.fallback_font
 	for area: Rect2 in Layout.floors():
@@ -478,9 +506,7 @@ func _draw() -> void:
 			draw_line(Vector2(area.position.x, y), Vector2(area.end.x, y), Color("243b47"), 1)
 	for wall in wall_segments:
 		draw_rect(wall, Color("677c83"))
-	for x in range(160, 2050, 120):
-		draw_rect(Rect2(x, 785, 38, 5), Color("efbb70"))
-		draw_rect(Rect2(x, 890, 38, 5), Color("efbb70"))
+	draw_floor_lights()
 	draw_string(font, Vector2(640, 853), "PERMANENT CORRIDOR  /  ALWAYS OPEN", HORIZONTAL_ALIGNMENT_LEFT, -1, 23, Color("c5d4d4"))
 	for i in Layout.ROOMS.size():
 		var corner: Vector2 = Layout.ROOMS[i].position + Vector2(24, 48)
@@ -498,6 +524,9 @@ func _draw() -> void:
 	draw_rect(Rect2(552, 275, 120, 70), Color("38505c"))
 	machine_label(Vector2(550, 377), "POWER %d / %d" % [state.used_power(), profile.capacity])
 	# Cargo: crate silhouettes and donor, all floor decals, never solid blockers.
+	var hydraulic_line := PackedVector2Array([Layout.DONOR, Vector2(1760, 320), Vector2(1760, 275), Vector2(1430, 275), Vector2(1430, 302), Vector2(1120, 302)])
+	draw_polyline(hydraulic_line, Color("0e2029"), 10)
+	draw_polyline(hydraulic_line, Color("66716a") if state.shortcut_closed() else Color("bcab79"), 4)
 	for x in [1450, 1560, 1930]:
 		for y in [435, 515]:
 			if x == 1930 and y == 515:
@@ -507,10 +536,10 @@ func _draw() -> void:
 	draw_rect(Rect2(1760, 255, 160, 130), Color("3c4d54"))
 	if not state.shortcut_closed():
 		draw_motor(Layout.DONOR)
-	machine_label(Vector2(1740, 420), "DONOR / " + ("EMPTY" if state.shortcut_closed() else "MOTOR"))
+	machine_label(Layout.DONOR + Vector2(0, 100), "DOOR PUMP / " + ("MOTOR REMOVED" if state.shortcut_closed() else "PRESSURIZED"), true)
 	draw_rect(Rect2(Layout.CONNECTOR - Vector2(28, 20), Vector2(56, 40)), Color("38505c"))
 	draw_line(Layout.CONNECTOR - Vector2(35, 0), Layout.CONNECTOR + Vector2(35, 0), Color("7cdac0") if state.connector_ready else Color("efbb70"), 8)
-	machine_label(Layout.CONNECTOR + Vector2(-45, -35), "SERVICE")
+	machine_label(Layout.CONNECTOR + Vector2(0, 50), "SERVICE", true)
 	if state.scenario.leak_fired:
 		if state.leak_patched:
 			draw_rect(Rect2(Layout.LEAK - Vector2(32, 24), Vector2(64, 48)), Color("426f69"))
@@ -526,7 +555,7 @@ func _draw() -> void:
 	# Shortcut gate and its explicitly labeled work light.
 	var light_color := Color("6a5b43") if state.shortcut_closed() else Color("efbb70")
 	draw_rect(Rect2(835, 285, 210, 7), light_color)
-	machine_label(Vector2(830, 445), "SERVICE: " + ("CLOSED / LIGHT OFF" if state.shortcut_closed() else "OPEN / LIGHT ON"))
+	machine_label(Vector2(830, 445), "SHUTTER: " + ("CLOSED / NO PRESSURE" if state.shortcut_closed() else "HELD OPEN / PRESSURIZED"))
 	if state.shortcut_closed():
 		draw_rect(Layout.GATE, Color("594e3f"))
 		for y in range(285, 390, 24):
@@ -538,7 +567,7 @@ func _draw() -> void:
 	for i in 12:
 		draw_circle(Vector2(197 + i * 31, 1185 + (i * 17) % 48), 2, Color("a8c6ce"))
 	draw_arc(Vector2(380, 1330), 60, PI, TAU, 24, Color("7cdac0"), 12)
-	machine_label(Vector2(270, 1410), "HELM / " + ("JUMP READY" if state.escape_ready() else "WAITING FOR CHARGE"))
+	machine_label(Layout.BRIDGE + Vector2(0, 80), "HELM / " + ("JUMP READY" if state.escape_ready() else "WAITING FOR CHARGE"), true)
 	# Life-support cylinders.
 	for x in [915, 1045, 1175]:
 		draw_style_box(cylinder_style(), Rect2(x, 1200, 80, 160))
@@ -593,8 +622,10 @@ func draw_drive_switch() -> void:
 		draw_arc(point, 74 + (1.2 - drive_arm_flash) * 28, 0, TAU, 64, flash, 4)
 		draw_string(font, point + Vector2(-230, -85), "DRIVE ARMED", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, flash)
 
-func machine_label(point: Vector2, value: String) -> void:
-	draw_string(ThemeDB.fallback_font, point, value, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color("bfd1d3"))
+func machine_label(point: Vector2, value: String, centered := false) -> void:
+	var font := ThemeDB.fallback_font
+	var offset := Vector2(-font.get_string_size(value, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x / 2, 0) if centered else Vector2.ZERO
+	draw_string(font, point + offset, value, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color("bfd1d3"))
 
 func draw_motor(point: Vector2) -> void:
 	draw_rect(Rect2(point - Vector2(18, 12), Vector2(36, 24)), Color("7cdac0"))

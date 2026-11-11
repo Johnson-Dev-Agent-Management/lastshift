@@ -2,7 +2,12 @@ extends "res://scripts/ship_simulation.gd"
 ## Opening, transition, emergency and outcomes share the simulation's fixed clock.
 const Scenario = preload("res://scripts/scenario_controller.gd")
 enum Stage { OPENING, TRANSITION, EMERGENCY, WON, LOST }
-const ANNOUNCEMENTS := ["JUMP FAILED — SERVICE SECTION ISOLATED", "CREW EVACUATION COMPLETE", "MAINTENANCE POD: LAUNCH FAILURE", "ONE LIFE SIGN REMAINING"]
+const ANNOUNCEMENTS := [
+	"COOLING VERIFIED — CHECKLIST COMPLETE\nBridge: preparing the scheduled jump.",
+	"JUMP FAILED — POWER SURGE\nCoolant motor offline. Service section isolated.",
+	"CREW EVACUATION COMPLETE\nYour maintenance pod failed its launch check.",
+	"ONE LIFE SIGN REMAINING\nThe ship is your way home.\nRestore cooling, then charge the jump drive."
+]
 var stage := Stage.OPENING
 var scenario: RefCounted
 var opening_seconds := 0.0
@@ -24,14 +29,14 @@ func _init(config: Resource = DEFAULT_PROFILE, with_opening := true) -> void:
 	if with_opening:
 		repaired = true
 		repair_elapsed = profile.repair_seconds
-		record("Last shift checklist: reseat the service connector in Cargo, then check Engineering power.")
+		record("Pre-jump check. Reach Cargo via the east shortcut or the lit main corridor to the south.")
 	else:
 		begin_emergency()
 
 func command_blocked() -> String:
 	var blocked := super.command_blocked()
 	if not blocked.is_empty(): return blocked
-	if stage == Stage.TRANSITION: return "Jump fault — wait for the evacuation report."
+	if stage == Stage.TRANSITION: return "Stand by — ship status report in progress."
 	return ""
 
 func emergency_command() -> bool:
@@ -78,13 +83,14 @@ func step(working: bool, in_range: bool) -> void:
 			if connector_elapsed + 0.000000001 >= profile.connector_seconds:
 				connector_elapsed = profile.connector_seconds
 				connector_ready = true
-				record("CONNECTOR SEATED — return to Engineering. Switch cooling OFF, then ON for the safe power check.")
+				record("CONNECTOR SEATED — return to Engineering. Cycle cooling OFF then ON to finish the pre-jump check.")
 		return
 	if stage == Stage.TRANSITION:
 		transition_seconds += STEP
 		var index := mini(ANNOUNCEMENTS.size() - 1, int((transition_seconds + 0.000000001) / profile.transition_message_seconds))
 		if index != announcement_index:
 			announcement_index = index
+			if index == 1: fail_coolant()
 			record(ANNOUNCEMENTS[index])
 		if transition_seconds + 0.000000001 >= ANNOUNCEMENTS.size() * profile.transition_message_seconds:
 			begin_emergency()
@@ -111,12 +117,16 @@ func step(working: bool, in_range: bool) -> void:
 			drive_powered = false
 			record("SHIFT COMPLETE — jump successful. You brought the ship home.")
 
-func begin_emergency() -> void:
+func fail_coolant() -> void:
 	if scenario.coolant_fired: return
-	stage = Stage.EMERGENCY
 	scenario.coolant_fired = true
 	repaired = false
 	repair_elapsed = 0.0
+
+func begin_emergency() -> void:
+	if stage == Stage.EMERGENCY or terminal(): return
+	fail_coolant()
+	stage = Stage.EMERGENCY
 	# Routine resources never depleted; start the response clock only now.
 	record("GET HOME. Coolant pump failed. Salvage the Cargo motor; restore cooling, then charge the drive.")
 

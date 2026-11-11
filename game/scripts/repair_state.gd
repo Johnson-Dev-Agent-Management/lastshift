@@ -22,7 +22,7 @@ func salvage() -> bool:
 	if motor != Motor.DONOR:
 		return false
 	motor = Motor.CARRIED
-	record("Motor salvaged. Shortcut CLOSED; work light OFF. Permanent corridor remains OPEN.")
+	record("Motor removed. Pressure lost; service shutter CLOSED, work light OFF. Main corridor OPEN.")
 	return true
 
 func drop_at(point: Vector2, safe: bool) -> bool:

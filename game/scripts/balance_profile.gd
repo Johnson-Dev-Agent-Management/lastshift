@@ -26,7 +26,7 @@ extends Resource
 @export var critical_clear := 88.0
 @export var critical_grace_seconds := 30.0
 @export var connector_seconds := 4.0
-@export var transition_message_seconds := 2.0
+@export var transition_message_seconds := 4.0
 @export var leak_charge_gate := 30.0
 @export var recovery_seconds := 40.0
 @export var leak_warning_seconds := 6.0

@@ -81,18 +81,24 @@ func _draw() -> void:
 		text_at(Vector2(42, 309), "Warning %.0f/%.0f · cutoff %.0f · restart below %.0f" % [profile.heat_warning_enter, profile.heat_warning_clear, profile.drive_cutoff, profile.drive_restart], 16)
 		text_at(Vector2(42, 335), "Critical %.2f/%.0fs · remainder %.6fs" % [state.critical_elapsed, profile.critical_grace_seconds, state.accumulator], 16)
 	if state.stage == ship.State.Stage.TRANSITION:
-		draw_rect(Rect2(0, 142, 1280, 438), Color(0.12, 0.08, 0.05, 0.72))
+		var pre_jump: bool = state.announcement_index == 0
+		draw_rect(Rect2(0, 142, 1280, 438), Color(0.03, 0.09, 0.12, 0.72) if pre_jump else Color(0.12, 0.08, 0.05, 0.72))
 		draw_rect(Rect2(210, 200, 860, 350), Color("101e29"))
-		text_at(Vector2(240, 239), "JUMP FAULT / EVACUATION REPORT", 24, AMBER)
-		for i in range(state.announcement_index + 1):
-			text_at(Vector2(240, 291 + i * 43), state.ANNOUNCEMENTS[i], 22, INK, 800)
+		text_at(Vector2(240, 239), "SHIP STATUS / " + ("SCHEDULED JUMP" if pre_jump else "EMERGENCY REPORT"), 22, MINT if pre_jump else AMBER)
+		text_at(Vector2(982, 239), "%d / %d" % [state.announcement_index + 1, state.ANNOUNCEMENTS.size()], 17, MUTED, 70)
+		var lines: PackedStringArray = state.ANNOUNCEMENTS[state.announcement_index].split("\n")
+		text_at(Vector2(240, 314), lines[0], 27, INK, 800)
+		for i in range(1, lines.size()):
+			text_at(Vector2(240, 340 + i * 36), lines[i], 22, INK, 800)
 		text_at(Vector2(240, 507), "Resources held until control returns. Esc pauses this report.", 17, MUTED)
+		for i in state.ANNOUNCEMENTS.size():
+			draw_rect(Rect2(240 + i * 202, 527, 188, 4), (MINT if pre_jump else AMBER) if i <= state.announcement_index else Color("31434e"))
 	if state.terminal(): draw_rect(Rect2(0, 0, 1280, 720), Color(0, 0, 0, 0.5))
 
 func warning_text() -> String:
 	var state = ship.state
 	if state.terminal(): return ""
-	if state.stage == ship.State.Stage.OPENING: return "ROUTINE CHECKLIST · no lethal resource changes · take your time"
+	if state.stage == ship.State.Stage.OPENING: return "PRE-JUMP CHECKLIST · no resource danger · take your time"
 	if state.critical:
 		var action := "keep cooling powered" if state.cooling_active() else "turn on cooling"
 		if state.drive_powered: action += ", stop drive"
@@ -113,11 +119,12 @@ func objective() -> String:
 	if state.escaped: return "SHIFT COMPLETE — YOU BROUGHT THE SHIP HOME"
 	if not state.failure.is_empty(): return "SHIFT ENDED — " + state.failure
 	if state.stage == ship.State.Stage.OPENING:
-		if not state.connector_ready: return "Last shift checklist: reseat the SERVICE connector in Cargo."
-		return "Checklist: Engineering power console — switch cooling OFF, then ON."
-	if state.stage == ship.State.Stage.TRANSITION: return "Jump failure. Await the evacuation report."
+		if not state.connector_ready: return "Pre-jump checklist: reseat the SERVICE connector in Cargo."
+		return "Pre-jump check: Engineering power — cycle cooling OFF, then ON."
+	if state.stage == ship.State.Stage.TRANSITION:
+		return "Checklist complete. Stand by for the scheduled jump." if state.announcement_index == 0 else "Jump failure. Read the ship status report."
 	if state.escape_ready(): return "RETURN TO BRIDGE — JUMP READY"
-	if state.motor == State.Motor.DONOR: return "Get home. Restore cooling — find the donor motor in Cargo."
+	if state.motor == State.Motor.DONOR: return "Get home. Restore cooling — salvage Cargo's door-pump motor."
 	if state.motor == State.Motor.DROPPED: return "Get home. Recover the motor marked on your map."
 	if not state.repaired: return "Get home. Carry the motor to Engineering and repair the pump."
 	if not state.drive_armed: return "Cooling repaired. Arm the drive in the Jump Chamber."
