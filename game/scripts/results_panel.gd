@@ -9,8 +9,8 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	offset_left = -360
 	offset_right = 360
-	offset_top = -204
-	offset_bottom = 204
+	offset_top = -224
+	offset_bottom = 224
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color("182d39")
 	style.border_color = Color("7cdac0")
@@ -35,6 +35,10 @@ func _ready() -> void:
 	opening.text = "Replay the opening and full shift"
 	opening.pressed.connect(func(): ship.reset_run(true))
 	box.add_child(opening)
+	var report := Button.new()
+	report.text = "Save playtest report"
+	report.pressed.connect(func(): ship.save_log())
+	box.add_child(report)
 	var quit := Button.new()
 	quit.text = "Quit"
 	quit.pressed.connect(func(): get_tree().quit())

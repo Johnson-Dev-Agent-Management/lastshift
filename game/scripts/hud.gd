@@ -23,7 +23,7 @@ func _draw() -> void:
 	draw_set_transform(Vector2.ZERO, 0, size / Vector2(1280, 720))
 	draw_rect(Rect2(0, 0, 1280, 142), Color("101e29"))
 	text_at(Vector2(28, 30), "LAST SHIFT", 25, AMBER)
-	text_at(Vector2(207, 29), "M3 / " + ship.State.Stage.keys()[state.stage], 14, MUTED)
+	text_at(Vector2(207, 29), "M4 / " + ship.State.Stage.keys()[state.stage], 14, MUTED)
 	text_at(Vector2(28, 61), objective(), 21)
 	text_at(Vector2(960, 29), Layout.room_at(ship.player.position), 15, AMBER, 292)
 	text_at(Vector2(960, 55), "M ship map · Esc pause", 16, INK, 292)
@@ -104,6 +104,7 @@ func warning_text() -> String:
 		if state.drive_powered: action += ", stop drive"
 		return "CRITICAL HEAT · %.1fs remaining · %s" % [maxf(0, ship.profile.critical_grace_seconds - state.critical_elapsed), action]
 	if state.air <= ship.profile.air_warning:
+		if state.escape_ready(): return "LOW AIR · jump ready — reach the Bridge and jump now"
 		if state.leak_active: return "LOW AIR · patch the Cargo leak to stop extra loss"
 		if not state.life_support_powered: return "LOW AIR · power life support to slow the loss"
 		if not state.reserve_used: return "LOW AIR · emergency reserve available in Life Support"
