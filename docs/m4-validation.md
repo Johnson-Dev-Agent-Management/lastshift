@@ -1,22 +1,34 @@
 # M4 difficulty and recovery: candidate evidence
 
-Version **0.4.0**, profile **m4-candidate-01**, branch `feat/m4-difficulty-recovery`, from merged M3 `0ef5569539419dd2b576a93785f5fc9d30b95c21`. Godot and matching official templates remain 4.6.3. Evidence collected November 11, 2026 UTC.
+Version **0.4.1**, profile **m4-candidate-02**, branch `feat/m4-difficulty-recovery`, from merged M3 `0ef5569539419dd2b576a93785f5fc9d30b95c21`. Godot and matching official templates remain 4.6.3. Current evidence collected November 13, 2026 UTC; candidate 01 observations below date from November 11.
 
-**Status:** recovery implementation and reproducible checks are ready for player review. M4's human gate remains open: a fresh player must explain a loss, choose an adjustment and test it. Automated or agent-operated success cannot establish comprehension, enjoyment or difficulty balance.
+**Status:** the supplied human report supports increasing pressure. It does not close M4's fresh-player gate: explain a loss, choose an adjustment and test it. Automated or agent-operated success cannot establish comprehension, enjoyment or difficulty balance. Another human run on candidate 02 is needed.
 
-## Observed issues and changes
+## Supplied player evidence
 
-| Observation | Change | Limits |
+The user reported that air and heat made the game too easy and supplied `run-2026-11-13T02-55-55-604641.json` (0.4.0 / `m4-candidate-01`). The report records **169.22 emergency seconds**, **64.14 air**, **43.86 heat**, hull sealed, reserve unused, and no developer setup. Heat never reached 44 in its samples/events. There are 44 samples without truncation. The safe opening took 31.72 seconds, separately from emergency time.
+
+The player salvaged at 15.50s, armed while carrying at 23.70s, finished the pump at 42.88s, and charged with cooling / life support off from 48.78s. The leak began at 90.78s; patching from 98.18s to 106.17s removed it while charge continued. Full charge arrived at 168.80s, followed promptly by the Bridge jump. This efficient route was missing from the original physical-policy tests.
+
+The packaged metadata names commit `b753fa98cf200c149e6a3394f49469d0afc91601` with `source_dirty: true`. Its exact recorded tuning matches candidate 01; it is not evidence of a clean checkout's binary identity. The report alone does not establish platform, audio, display/focus behavior or fresh-player comprehension. The raw attachment stays local; only gameplay observations are summarized here.
+
+## Tuning and response windows
+
+| Setting | Candidate 01 | Candidate 02 |
 | --- | --- | --- |
-| A distant critical warning cannot be recovered from within 30 seconds after five seconds of recognition, 13.63 seconds of physical travel, then cooling below the clear threshold | Critical grace **30 → 65 seconds**; no other tuning changes | Explicit threshold fixture, not a claim that ordinary play often reaches critical heat |
-| In a live aggressive run, full charge and low air simultaneously said return to Bridge and patch Cargo | At full charge, LOW AIR directs the player to Bridge; critical countdown still takes priority | Does not calculate a guaranteed safe escape or change resource consequences |
-| Release players lacked a convenient way to share the state behind a confusing outcome | Opt-in Save playtest report in pause/results, with exact profile settings, packaged build identity, periodic resource/location samples and events | No autosave or upload; source/editor reports need a separately recorded commit |
+| Air drain with life support | 0.08/s | **0.14/s** |
+| Air drain without life support | 0.22/s | **0.50/s** |
+| Charging heat added | +0.35/s | **+0.65/s** |
+| Net charging heat with repaired cooling | +0.03/s | **+0.33/s** |
+| Net charging heat without cooling | +0.45/s | **+0.75/s** |
+| LOW AIR threshold | 25 | **36** |
+| HIGH HEAT enter / clear | 68 / 62 | **64 / 58** |
 
-The direct critical response is **30.42 seconds**: 13.63 seconds of travel plus actual cooling from the heat accumulated during travel. With five seconds of delayed reaction it is **36.97 seconds**. The former 30-second window expires with heat still about 90.24; the candidate clears critical below 88 with about 28 seconds remaining. **65 > 2 × 30.42**, satisfying the plan's initial direct-response allowance for this measured route. Cooling must still be repaired and deliberately powered. Longer delays can still lose; no hidden refill, automatic allocation or new protection was added.
+Keep **120 powered seconds of charge**, starting air/heat 100/38, idle heat +0.10/s, cooling −0.42/s, leak drain +0.35/s, reserve +25, cutoff 86/restart below 64, critical 92/clear below 88, critical grace 65 seconds, repairs 6/8 seconds, capacity 6 and power costs 2/2/4. Authored leak gates (40 seconds / 30% charge / safe heat) and player-paced opening remain unchanged. Repairs and charge remain permanent. Cooling without charging still recovers at −0.32/s.
 
-All other settings remain M3's: 120 powered seconds of charge, capacity 6 and costs 2/2/4, starting air/heat 100/38, air drains 0.08/0.22 plus leak 0.35, reserve +25, heat rates +0.10 idle / +0.35 charging / −0.42 cooling, warning 68/clear 62, cutoff 86/restart below 64, critical 92/clear below 88, repairs 6/8 seconds, and leak gates 40 seconds / 30% charge / safe heat. The opening remains player-paced with no survival clocks.
+At the fastest air loss, **36 / 0.85 = 42.35 seconds** remain at the warning. The measured power-to-leak route plus work is **12.83 + 8 = 20.83 seconds**, or 41.66 doubled. A reserve buys 29.41 seconds at that worst rate, or 51.02 seconds with life support and the leak active. HIGH HEAT at 64 leaves **(86 − 64) / 0.75 = 29.33 seconds** before cutoff without cooling, just over twice the measured 13.63-second distant return plus a one-second console action. These are arithmetic response allowances, not proof a player will notice and act in time.
 
-At the fastest air loss, the low-air threshold of 25 provides **43.86 seconds** until depletion if nothing changes. The unchanged measured power-to-leak route is 12.83 seconds plus eight seconds of work: **20.83 seconds**, or 41.66 doubled. A full reserve also buys 43.86 seconds at that worst rate, or 58.14 seconds with life support and the leak active. These are arithmetic response margins, not evidence that a player notices or understands the warning in time. No additional air, travel or reserve tuning was justified by the available evidence.
+The earlier M4 critical-grace adjustment remains: **30 → 65 seconds**. The direct Jump Chamber → Engineering response plus cooling below 88 took **30.42 seconds**, or **36.97 seconds** with five seconds of recognition delay. The old 30-second fixture expires with heat about 90.24; 65 exceeds twice the direct response. No automatic allocation or refill was added. Full-charge LOW AIR continues to prioritize Bridge escape; critical countdown has higher priority. Opt-in local reports remain available from pause/results.
 
 ## Automatic checks
 
@@ -27,23 +39,32 @@ python3 scripts/dev.py check --clean
 python3 scripts/dev.py export-windows
 ```
 
-Clean import, initialized scene startup, M1/M2/M3 regression suites and the new M4 suite pass. The M4 suite moves the actual CharacterBody2D through collision geometry, invokes range-checked local equipment and completes an actual Bridge request. It does not teleport, refill, pre-repair or accelerate the simulation clock within the three full emergency policies; `--fixed-fps 60` runs the same fixed steps without real-time waits. Policy decisions and exact waypoints are scripted.
+Clean import, initialized scene startup and M1–M4 suites pass. The M4 suite moves the actual CharacterBody2D through collision geometry, invokes range-checked equipment and performs the Bridge request. Its six full emergency policies do not teleport, refill, pre-repair or accelerate simulation time; `--fixed-fps 60` runs fixed steps without real-time waits. Decisions and waypoints are scripted.
 
-| Physical policy | Emergency duration | Air at escape | Heat | Reserve / hull |
+| Physical policy, candidate 02 | Emergency duration | Final air | Final heat | Outcome / reserve / hull |
 | --- | --- | --- | --- | --- |
-| Careful: life support + drive, cooling breaks, patch during a break | 301.13 s | 68.62 | 45.11 | Unused / sealed |
-| Aggressive: cooling + drive, endure leak | 179.62 s | 39.35 | 33.59 | Unused / leaking |
-| Imperfect: wrong turn, interrupted pump, cooling off during arming trip, delayed heat response through cutoff, reserve detour, interrupted patch | 342.63 s | 65.02 | 46.85 | Used / sealed |
+| Careful: life support + drive, cooling breaks, patch during a break | 385.98 s | 38.67 | 53.96 | Escape / unused / sealed |
+| Aggressive: cooling + drive, endure leak, prompt escape | 179.62 s | 2.17 | 69.59 | Escape / unused / leaking |
+| Aggressive with a physical reserve detour at LOW AIR | 179.62 s | 27.17 | 69.59 | Escape / used / leaking |
+| Imperfect: wrong turn, interrupted pump, cooling off while arming, delayed cutoff response, reserve detour, interrupted patch | 480.23 s | 45.83 | 38.83 | Escape / used / sealed |
+| Efficient: arm while carrying, cooling + drive, patch while charging, head straight to Bridge | 154.78 s | 27.82 | 80.53 | Escape / unused / sealed |
+| Neglect: aggressive route, then delay ten seconds before restoring survival power / heading to Bridge | 179.55 s | 0.00 | 69.61 | AIR DEPLETED / unused / leaking |
 
-The same three routes produced these results under the M3 baseline: none reached critical heat, so changing critical grace does not make their ordinary resource budget easier. The imperfect route specifically demonstrates retained work, retained charge after cutoff, one reserve use, permanent patch relief and eventual escape. Its comfortable final air does not prove that uncoached players will discover that sequence.
+The no-reserve aggressive route is now a narrow race; using the reserve buys a meaningful margin without extending charge. The imperfect policy waits for the actual heat-gated leak before patching, which now occurs later after the overheated start. It demonstrates retained work/charge and recovery, not that players will discover those decisions. The older M3 timing simulation now includes a ten-second travel allowance each way to use the reserve when enduring the leak; it is distinct from these physical walks.
 
-Separate critical fixtures explicitly set repaired cooling, the critical threshold and a Jump Chamber starting position. They compare the old window, the candidate with five seconds of recognition delay, and the direct candidate route. They are clearly separated from the full runs in `builds/m4-physical-runs.json`.
+A separate command-timing replay uses rounded action times from the supplied report. First it reproduces candidate 01 at **64.13 air / 43.85 heat**, within 0.1 of the recorded outcome; applying candidate 02 predicts **27.35 air / 79.85 heat** at the same escape time, with the hull sealed and reserve unused. This replay has no movement claims; the physical efficient policy above supplies route coverage. Neither is a new human playtest.
 
-Report tests cover periodic active-time sampling, pause, JSON save/read, exact tuning, event history, a clean report on retry and developer-setup identification. Warning tests verify Bridge guidance at full charge, Cargo guidance before completion and critical-countdown priority. Existing M3 tests still cover both terminal failures, deterministic outcome order and repeated retry.
+Separate critical fixtures set repaired cooling, critical heat and a Jump Chamber position. They compare the old countdown, candidate with a five-second notice delay, and direct response. `builds/m4-physical-runs.json` identifies physical policies, fixtures and timing replays separately. Report tests cover active-time sampling, pause, JSON save/read, tuning, event history, fresh retry and developer-setup identification. Warning tests cover full-charge Bridge guidance, pre-completion Cargo guidance and critical priority. Existing M3 tests cover both terminal failures, deterministic ordering and repeated retry.
+
+For comparison, candidate 01's physical careful/aggressive/imperfect routes escaped at **301.13 / 179.62 / 342.63 seconds**, with **68.62 / 39.35 / 65.02 air** and **45.11 / 33.59 / 46.85 heat**. Those historical results are not measurements of candidate 02.
 
 The Windows package is `builds/LastShift-M4-Windows-x86_64.zip`; CI validates setup/check/export on Ubuntu 24.04 and Windows Server 2022. The PR records exact commit, export and CI identities. An export or headless Windows pass is not a native Windows graphical playtest.
 
 ## Actually operated and rendered
+
+**Current candidate, November 13 UTC:** the agent played a full Linux emergency retry on **0.4.1 / m4-candidate-02**, using real keyboard/mouse input. Salvaged, armed while carrying, repaired the pump, charged with cooling, patched Cargo and escaped directly from Bridge at **176.83 seconds**, **28.55 air**, **75.69 heat**, reserve unused. No F6/F7 setup was used. The rendered HUD showed −0.50 air/s and +0.33 heat/s during cooled charging, the sealed hull persisted, and LOW AIR was visible before escape. Results showed the correct candidate profile. Saving the report worked; its JSON has 38 samples, developer setup false, and no truncation. Local evidence: `builds/m4-live-efficient-candidate02.json`. Pauses and tool latency affect this run; waiting at the console before charging also cooled the ship more than in the reported human route. This was an operational check, not a new human balance result.
+
+**Historical checks from candidate 01 (November 11 UTC):**
 
 The agent operated the Linux Compatibility build using real keyboard/mouse input in an 1180×812 window with a letterboxed view. No F6/F7 prepared state was used for full runs. Tool latency and pauses to inspect evidence make these operational checks, not representative human timings.
 

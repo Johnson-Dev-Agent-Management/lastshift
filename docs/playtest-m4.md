@@ -1,6 +1,6 @@
 # M4 difficulty and recovery playtest
 
-Version **0.4.0**, profile **m4-candidate-01**. This is the same authored shift with one tuning change: critical-heat grace is **65 seconds**, previously 30. The measured return from the Jump Chamber plus actual cooling took longer than the old countdown. Charging still requires 120 powered seconds. Air drains, leak timing, reserve amount, repairs and travel speed are unchanged. This candidate has not passed the fresh-player difficulty gate.
+Version **0.4.1**, profile **m4-candidate-02**. Air drains faster: **0.14/s with life support, 0.50/s without**, plus 0.35/s while leaking. Charging adds **0.65 heat/s**; with idle heat and repaired cooling, net buildup is **0.33/s**. LOW AIR starts at 36 and HIGH HEAT at 64, giving earlier notice at these rates. Charging still requires **120 powered seconds**. Cooling strength, leak timing, reserve +25, permanent repairs and travel speed are unchanged. Critical-heat grace remains 65 seconds after the measured return/cooling adjustment in 0.4.0. This candidate has not passed the fresh-player difficulty gate.
 
 ## Launch and controls
 
@@ -33,7 +33,7 @@ Equipment and map screens keep emergency time running. Pause stops all gameplay 
 For a fresh-player pass, read only launch/controls, then play without the route below. Save the report before retrying or quitting. Record confusion as it happens; do not use developer shortcuts. The next three passes intentionally provide more guidance and should be recorded separately.
 
 1. **Careful:** take the east shortcut for the safe Cargo connector check, return and cycle cooling OFF/ON. After the report, salvage the door-pump motor and return through the permanent corridor. Repair cooling, arm the local drive, then manage power at Engineering. Try life support + drive with cooling breaks; patch the Cargo leak during a break. Return to Bridge at full charge. Was there useful breathing room after each repair?
-2. **Aggressive:** retry from the emergency, repair and arm promptly, then use cooling + drive with life support off. Endure the leak and race the remaining air to the Bridge. Does that faster win feel like spending a resource? Was air loss visible enough to judge the risk? Do not increase charge time to create activity.
+2. **Aggressive:** retry from the emergency, repair and arm promptly, then use cooling + drive with life support off. Enduring the leak without the reserve now leaves very little margin; try the reserve or patch during charging. Compare this with the reported efficient route: salvage, arm while carrying the motor, repair cooling, charge with cooling, patch, then head straight to Bridge. Does the faster win feel like spending a resource? Was air loss visible enough to judge the risk? Do not increase charge time to create activity.
 3. **Imperfect:** take a wrong turn toward the shutter after salvage, interrupt the pump repair once, and react late to one warning. Recover by reallocating power, finishing retained repairs and/or using the one-time reserve. Record the exact mistake rather than simply calling the run hard. Deliberately waiting through every warning is a separate stress test, not the expected player mistake.
 4. **Loss and retry:** if you lose, explain the cause and the next adjustment before reading a walkthrough. Confirm that the result names the actual cause and never blames a repair you completed. Retry and attempt that adjustment. A successful run alone does not demonstrate this comprehension gate.
 
@@ -70,4 +70,4 @@ python3 scripts/dev.py check --clean
 python3 scripts/dev.py export-windows
 ```
 
-`builds/m4-physical-runs.json` distinguishes full physical scripted routes from explicit critical-heat fixtures. Those scripts use deterministic decisions; they do not stand in for a human playtest. Debug builds retain F5 emergency reset, F6 repaired setup, F7 leak setup, F8 overlay and F10 report saving. Player builds disable these shortcuts.
+`builds/m4-physical-runs.json` distinguishes six full physical scripted routes from explicit critical-heat fixtures and the supplied report's timing replay. The replay verifies the old outcome before applying the new rates; it is a prediction, not a human run on the new profile. Debug builds retain F5 emergency reset, F6 repaired setup, F7 leak setup, F8 overlay and F10 report saving. Player builds disable these shortcuts.
