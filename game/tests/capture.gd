@@ -13,7 +13,7 @@ func capture(viewport: SubViewport, label: String) -> void:
 	viewport.get_texture().get_image().save_png(path)
 
 func run() -> void:
-	output = ProjectSettings.globalize_path("res://../builds/screenshots-m3")
+	output = ProjectSettings.globalize_path("res://../builds/screenshots-m4")
 	DirAccess.make_dir_recursive_absolute(output)
 	for dimensions in [Vector2i(1280, 720), Vector2i(1920, 1080)]:
 		var viewport := SubViewport.new()
@@ -28,6 +28,9 @@ func run() -> void:
 		await capture(viewport, "opening-map")
 		ship.map_open = false
 		await capture(viewport, "opening-route")
+		ship.toggle_pause()
+		await capture(viewport, "pause-report-action")
+		ship.toggle_pause()
 		for i in range(1, ship.Layout.ROOMS.size()):
 			ship.player.position = ship.Layout.ROOMS[i].get_center()
 			await capture(viewport, "room-%d" % i)
@@ -71,8 +74,12 @@ func run() -> void:
 		ship.state.advance(5, true, true, false, 6)
 		await capture(viewport, "leak-sealed")
 		ship.state.charge = 100
+		ship.state.air = 20
+		ship.state.leak_active = true
+		ship.state.leak_patched = false
+		ship.state.patch_elapsed = 0
 		ship.player.position = ship.Layout.BRIDGE
-		await capture(viewport, "jump-ready")
+		await capture(viewport, "low-air-jump-ready")
 		ship.interact()
 		await capture(viewport, "shift-complete")
 		ship.reset_run()
@@ -83,7 +90,13 @@ func run() -> void:
 		ship.state.critical = true
 		ship.state.critical_elapsed = ship.profile.critical_grace_seconds
 		await capture(viewport, "heat-loss")
+		ship.reset_run()
+		ship.state.salvage()
+		ship.state.advance(ship.profile.repair_seconds, true, true, false, ship.profile.repair_seconds)
+		ship.state.heat = 93
+		ship.state.critical = true
+		await capture(viewport, "critical-recovery")
 		viewport.queue_free()
 		await process_frame
-	print("LAST_SHIFT_CAPTURE_PASS: M3 opening, transition, leak, patch, bridge and results at 1280x720 and 1920x1080")
+	print("LAST_SHIFT_CAPTURE_PASS: M4 report actions, warning guidance and outcomes at 1280x720 and 1920x1080")
 	quit()

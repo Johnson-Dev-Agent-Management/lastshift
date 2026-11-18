@@ -1,6 +1,6 @@
 # Last Shift First Playable Game Plan
 
-Version 1.0 | November 8, 2026 | Implementation baseline
+Version 1.2 | November 13, 2026 | Implementation baseline and M4 candidate decisions
 
 Build a complete, winnable Godot prototype about keeping an aging cargo ship alive long enough to escape. The core experience is pressure, a meaningful decision, hands-on action, and visible relief. This plan defines the first playable and the evidence needed before expanding it.
 
@@ -284,6 +284,8 @@ Playtest careful, aggressive, and imperfect approaches. Tune warning windows, tr
 
 **Exit evidence:** imperfect play has a demonstrated recovery route; players can explain a loss and identify their next adjustment. Record observed issues and the profile used.
 
+**Current gate:** 0.4.1 / `m4-candidate-02` increases air drain and charging heat after a supplied human report finished with 64% air / 44% heat. Warnings move earlier; powered charge stays 120 seconds. Full physical scripted routes, measured critical recovery, report-timing replays and agent-operated runs are recorded separately from human evidence in `docs/m4-validation.md`. Fresh-player loss comprehension, native Windows graphical validation and human difficulty acceptance remain open; the candidate does not close those gates.
+
 ### M5 Cohesion and readability
 
 Unify room art, terminology, machine feedback, alert priorities, sound, HUD scaling, and opening/ending transitions. Add the agreed accessibility options and verify them.
@@ -358,6 +360,12 @@ Room dimensions, art details, component placement, input polish, power costs, ra
 Procedural maps, random breakdowns, combat, enemies, crew AI, multiplayer, inventory grids, crafting trees, multiple ships, progression, leaderboards, mid-run saves, VR, mobile export, physical controllers, and backend services are outside the first playable. Reactor overdrive, fire, venting individual rooms, and detailed pressure simulation are also deferred.
 
 Do not add a new system to solve a problem that timing, layout, feedback, or a balance change can address. Keep work focused on the complete playable loop.
+
+### Implementation decision log
+
+- **M2/M3, carried into M4:** powered charge is 120 seconds following player feedback about waiting. The original 8–12 minute first-completion goal remains a hypothesis, not a reason to lengthen idle charging. The opening report uses three six-second pages and a player-dismissed final page, with survival clocks held.
+- **M4 candidate, November 11, 2026 UTC:** critical-heat grace changes from 30 to 65 seconds. A physical Jump Chamber → Engineering route plus cooling below 88 took 30.42 seconds without a notice delay, or 36.97 seconds with a five-second delay. The candidate exceeds twice the direct response time; no heat rates, thresholds or other resource budgets changed. A live low-air/full-charge run also exposed conflicting patch-versus-escape guidance, so that warning now prioritizes the ready Bridge jump. Human acceptance remains pending.
+- **M4 candidate 02, November 13, 2026 UTC:** the player reported an easy escape; their 0.4.0 report records 169.22 emergency seconds, 64.14 air, 43.86 heat, hull sealed and reserve unused. Increase powered/unpowered air drain from 0.08/0.22 to 0.14/0.50 per second and charging heat from 0.35 to 0.65 per second. Move LOW AIR from 25 to 36 and HIGH HEAT from 68/62 to 64/58 (enter/clear), retaining the measured response allowance. Keep 120-second charge, cooling strength, permanent repairs, reserve, authored events and critical grace. Replaying the reported decisions predicts 27.35 air / 79.85 heat; this is a tuning hypothesis requiring another human run, not validated difficulty.
 
 ### Reference links
 

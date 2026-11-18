@@ -7,6 +7,7 @@ const Feedback = preload("res://scripts/feedback.gd")
 const SystemsPanel = preload("res://scripts/systems_panel.gd")
 const HUD = preload("res://scripts/hud.gd")
 const ICON = preload("res://assets/icon.svg")
+const PlaytestReport = preload("res://scripts/playtest_report.gd")
 const PROFILE = preload("res://balance_profile.tres")
 var profile = PROFILE
 var state = State.new(PROFILE)
@@ -38,6 +39,8 @@ var results_panel = Results.new()
 var report_continue := Button.new()
 var dev_overlay := false
 var ui_layer := CanvasLayer.new()
+var playtest_report = PlaytestReport.new()
+var report_notice := AcceptDialog.new()
 
 func _ready() -> void:
 	build_collision()
@@ -72,6 +75,9 @@ func _ready() -> void:
 	ui_layer.add_child(systems_panel)
 	results_panel.ship = self
 	ui_layer.add_child(results_panel)
+	ui_layer.add_child(report_notice)
+	report_notice.title = "Playtest report"
+	report_notice.dialog_autowrap = true
 	state.event_occurred.connect(on_event)
 	state.changed.connect(sync_state)
 	sync_state()
@@ -118,7 +124,7 @@ func build_menus() -> void:
 	cancel_button.text = "Keep shortcut open / cancel"
 	cancel_button.pressed.connect(cancel_salvage)
 	box.add_child(cancel_button)
-	pause_panel = panel(Vector2(600, 300))
+	pause_panel = panel(Vector2(600, 360))
 	box = menu_box(pause_panel)
 	menu_label(box, "SHIFT PAUSED", 25)
 	menu_label(box, "Air, heat, charge and work are paused. Progress is retained.", 18)
@@ -134,6 +140,10 @@ func build_menus() -> void:
 	opening.text = "Replay the opening"
 	opening.pressed.connect(func(): reset_run(true))
 	box.add_child(opening)
+	var report_button := Button.new()
+	report_button.text = "Save playtest report"
+	report_button.pressed.connect(save_log)
+	box.add_child(report_button)
 	work_option = CheckButton.new()
 	work_option.text = "Toggle E to work (instead of holding E)"
 	work_option.toggled.connect(func(enabled: bool): toggle_work = enabled; stop_work())
@@ -186,6 +196,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event.is_action_pressed("dev_ready") and OS.is_debug_build():
 		reset_run()
+		playtest_report.developer_setup = true
 		state.salvage()
 		state.advance(profile.repair_seconds + State.STEP, true, true, false, profile.repair_seconds)
 		state.arm_drive()
@@ -193,6 +204,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event.is_action_pressed("dev_leak") and OS.is_debug_build():
 		reset_run()
+		playtest_report.developer_setup = true
 		state.salvage()
 		state.advance(profile.repair_seconds + State.STEP, true, true, false, profile.repair_seconds)
 		state.arm_drive()
@@ -289,6 +301,7 @@ func toggle_pause() -> void:
 	else:
 		get_viewport().gui_release_focus()
 	refresh_report_button()
+	state.record("Paused." if paused else "Resumed.")
 
 func refresh_report_button() -> void:
 	var waiting: bool = state.awaiting_report_dismissal() and not paused
@@ -337,6 +350,7 @@ func _physics_process(delta: float) -> void:
 		systems_panel.close()
 		map_open = false
 	refresh_report_button()
+	playtest_report.sample(state, player.position)
 	if state.terminal() and not results_panel.visible:
 		stop_work()
 		confirming = false
@@ -467,6 +481,8 @@ func on_event(value: String) -> void:
 
 func reset_run(replay_opening := false) -> void:
 	state = State.new(profile, replay_opening)
+	playtest_report = PlaytestReport.new()
+	report_notice.hide()
 	state.event_occurred.connect(on_event)
 	state.changed.connect(sync_state)
 	player.position = Layout.SPAWN
@@ -497,10 +513,13 @@ func reset_run(replay_opening := false) -> void:
 	sync_state()
 
 func save_log() -> void:
-	var file := FileAccess.open("user://m3-events.json", FileAccess.WRITE)
-	if file:
-		file.store_string(JSON.stringify({"milestone": "M3", "version": ProjectSettings.get_setting("application/config/version"), "engine": Engine.get_version_info()["string"], "profile": profile.profile_id, "events": state.events, "snapshot": state.snapshot()}, "\t"))
-		message = "Local event log: " + ProjectSettings.globalize_path("user://m3-events.json")
+	playtest_report.sample(state, player.position, true)
+	var path: String = playtest_report.save(state, profile)
+	if path.is_empty():
+		report_notice.dialog_text = "Could not save the report. Check that the user-data folder is writable."
+	else:
+		report_notice.dialog_text = "Saved this run to:\n" + ProjectSettings.globalize_path(path)
+	report_notice.popup_centered(Vector2i(680, 180))
 
 func floor_light(area: Rect2) -> void:
 	# Static emissive-looking fixtures work in Compatibility without a light pass.

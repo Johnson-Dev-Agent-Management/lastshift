@@ -323,6 +323,11 @@ func scripted_run(patch: bool) -> Dictionary:
 	state.set_power("drive", true)
 	while state.charge < 100 and not state.terminal() and state.active_seconds < 1000:
 		tick(state, Run.STEP)
+		if not patch and state.air <= PROFILE.air_warning and not state.reserve_used:
+			# Charge continues during a measured-route allowance to Life Support and back.
+			tick(state, 10)
+			state.use_reserve()
+			tick(state, 10)
 		if patch and state.leak_active:
 			state.set_power("drive", false)
 			state.set_power("cooling", true)
