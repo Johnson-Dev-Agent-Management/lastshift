@@ -3,6 +3,7 @@ var ship: Node2D
 var heading := Label.new()
 var detail := Label.new()
 var stats := Label.new()
+var arrival: Tween
 var retry := Button.new()
 
 func _ready() -> void:
@@ -49,6 +50,12 @@ func open() -> void:
 	var state = ship.state
 	heading.text = "SHIFT COMPLETE" if state.escaped else "SHIFT ENDED — " + state.failure
 	detail.text = state.recovery_advice()
-	stats.text = "ACTIVE PLAY  %.1fs   ·   EMERGENCY  %.1fs\nAIR  %.1f   ·   HEAT  %.1f   ·   CHARGE  %.1f%%\nPUMP  %s   ·   HULL  %s   ·   RESERVE  %s\nPROFILE  %s" % [state.opening_seconds + state.active_seconds, state.active_seconds, state.air, state.heat, state.charge, "REPAIRED" if state.repaired else "BROKEN", "SEALED" if state.leak_patched else ("LEAKING" if state.leak_active else "INTACT"), "USED" if state.reserve_used else "AVAILABLE", ship.profile.profile_id]
+	stats.text = "SHIP TIME     %.1fs   ·   EMERGENCY  %.1fs\nAIR  %.1f   ·   HEAT  %.1f   ·   CHARGE  %.1f%%\nPUMP  %s   ·   HULL  %s   ·   RESERVE  %s\nBUILD  %s   ·   TUNING  %s" % [state.opening_seconds + state.active_seconds, state.active_seconds, state.air, state.heat, state.charge, "REPAIRED" if state.repaired else "BROKEN", "SEALED" if state.leak_patched else ("LEAKING" if state.leak_active else "INTACT"), "USED" if state.reserve_used else "AVAILABLE", ProjectSettings.get_setting("application/config/version"), ship.profile.profile_id]
 	show()
+	if arrival: arrival.kill()
+	modulate = Color.WHITE
+	if state.escaped and not ship.reduced_flashing:
+		modulate = Color(0.70, 0.85, 1.0)
+		arrival = create_tween()
+		arrival.tween_property(self, "modulate", Color.WHITE, 0.55)
 	retry.grab_focus()

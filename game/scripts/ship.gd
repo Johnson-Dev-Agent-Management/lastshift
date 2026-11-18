@@ -9,11 +9,18 @@ const HUD = preload("res://scripts/hud.gd")
 const ICON = preload("res://assets/icon.svg")
 const PlaytestReport = preload("res://scripts/playtest_report.gd")
 const PROFILE = preload("res://balance_profile.tres")
+const READY_BLUE := Color("68caff")
 var profile = PROFILE
 var state = State.new(PROFILE)
 var player = Player.new()
 var feedback = Feedback.new()
 var hud = HUD.new()
+var camera := Camera2D.new()
+var reduced_flashing := false
+var reduced_shake := false
+var impulse_remaining := 0.0
+var settings_panel: PanelContainer
+var settings_button := Button.new()
 var gate_collision := CollisionShape2D.new()
 var target := ""
 var paused := false
@@ -47,7 +54,6 @@ func _ready() -> void:
 	player.position = Layout.SPAWN
 	player.speed = profile.walk_speed
 	add_child(player)
-	var camera := Camera2D.new()
 	camera.position = Vector2(0, -40)
 	camera.zoom = Vector2(0.9, 0.9)
 	player.add_child(camera)
@@ -71,6 +77,7 @@ func _ready() -> void:
 	report_continue.pressed.connect(dismiss_report)
 	report_continue.hide()
 	build_menus()
+	get_window().focus_exited.connect(state_focus_lost)
 	systems_panel.ship = self
 	ui_layer.add_child(systems_panel)
 	results_panel.ship = self
@@ -124,7 +131,7 @@ func build_menus() -> void:
 	cancel_button.text = "Keep shortcut open / cancel"
 	cancel_button.pressed.connect(cancel_salvage)
 	box.add_child(cancel_button)
-	pause_panel = panel(Vector2(600, 360))
+	pause_panel = panel(Vector2(600, 346))
 	box = menu_box(pause_panel)
 	menu_label(box, "SHIFT PAUSED", 25)
 	menu_label(box, "Air, heat, charge and work are paused. Progress is retained.", 18)
@@ -144,19 +151,67 @@ func build_menus() -> void:
 	report_button.text = "Save playtest report"
 	report_button.pressed.connect(save_log)
 	box.add_child(report_button)
+	settings_button.text = "Controls, effects and audio"
+	settings_button.pressed.connect(open_settings)
+	box.add_child(settings_button)
+	settings_panel = panel(Vector2(570, 460))
+	box = menu_box(settings_panel)
+	menu_label(box, "Controls, effects and audio", 24)
 	work_option = CheckButton.new()
-	work_option.text = "Toggle E to work (instead of holding E)"
+	work_option.text = "Press E to toggle repairs"
 	work_option.toggled.connect(func(enabled: bool): toggle_work = enabled; stop_work())
 	box.add_child(work_option)
-	menu_label(box, "Master volume", 16)
+	var flash_option := CheckButton.new()
+	flash_option.text = "Reduce flashing"
+	flash_option.toggled.connect(func(enabled: bool): reduced_flashing = enabled)
+	box.add_child(flash_option)
+	var shake_option := CheckButton.new()
+	shake_option.text = "Reduce camera shake"
+	shake_option.toggled.connect(func(enabled: bool):
+		reduced_shake = enabled
+		camera.offset = Vector2.ZERO
+	)
+	box.add_child(shake_option)
+	for bus in ["Master"] + Feedback.BUSES:
+		add_volume_control(box, bus)
+	var back := Button.new()
+	back.text = "Back"
+	back.pressed.connect(close_settings)
+	box.add_child(back)
+
+func add_volume_control(box: VBoxContainer, bus: String) -> void:
+	var row := HBoxContainer.new()
+	box.add_child(row)
+	var label := Label.new()
+	label.text = bus
+	label.custom_minimum_size.x = 125
+	row.add_child(label)
 	var volume := HSlider.new()
 	volume.min_value = 0
 	volume.max_value = 1
 	volume.step = 0.05
-	volume.value = 0.65
-	AudioServer.set_bus_volume_linear(0, 0.65)
-	volume.value_changed.connect(func(value: float): AudioServer.set_bus_volume_linear(0, value))
-	box.add_child(volume)
+	var index := AudioServer.get_bus_index(bus)
+	if bus == "Master":
+		AudioServer.set_bus_volume_linear(index, 0.65)
+	volume.value = AudioServer.get_bus_volume_linear(index)
+	volume.tooltip_text = bus + " volume"
+	volume.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	volume.value_changed.connect(func(value: float): AudioServer.set_bus_volume_linear(index, value))
+	row.add_child(volume)
+
+func open_settings() -> void:
+	pause_panel.hide()
+	settings_panel.show()
+	work_option.set_pressed_no_signal(toggle_work)
+	work_option.grab_focus()
+
+func close_settings() -> void:
+	settings_panel.hide()
+	pause_panel.show()
+	settings_button.grab_focus()
+
+func state_focus_lost() -> void:
+	state.release_helm()
 
 func panel(dimensions: Vector2) -> PanelContainer:
 	var result := PanelContainer.new()
@@ -191,6 +246,8 @@ func menu_label(parent: Control, value: String, font_size: int) -> void:
 	parent.add_child(label)
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_released("interact"):
+		state.release_helm()
 	if event.is_action_pressed("dev_overlay") and OS.is_debug_build():
 		dev_overlay = not dev_overlay
 		return
@@ -221,6 +278,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("pause"):
 		if state.terminal():
 			results_panel.retry.grab_focus()
+		elif settings_panel.visible:
+			close_settings()
 		elif confirming:
 			cancel_salvage()
 		elif systems_panel.visible:
@@ -235,6 +294,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if paused or confirming or systems_panel.visible or state.terminal():
 		return
 	if event.is_action_pressed("map"):
+		state.release_helm()
 		map_open = not map_open
 	if event.is_action_pressed("work_mode"):
 		toggle_work = not toggle_work
@@ -256,9 +316,13 @@ func interact() -> void:
 			var was_armed: bool = state.drive_armed
 			var result: String = state.arm_drive()
 			if not result.is_empty(): message = result
-			elif was_armed: message = "Drive already ARMED. Allocate drive power at Engineering to charge."
+			elif state.escape_ready(): message = "Drive ready. Use the helm on the Bridge to jump."
+			elif was_armed: message = "Drive switch is latched. " + state.drive_status()
 		"bridge":
-			message = state.request_jump()
+			if not map_open and state.helm_available():
+				state.engage_helm()
+			elif not map_open:
+				message = state.request_jump()
 		"donor":
 			confirming = true
 			stop_work()
@@ -289,13 +353,13 @@ func drop_motor() -> void:
 		message = "Move a little away from the wall to drop safely."
 
 func toggle_pause() -> void:
+	state.release_helm()
 	paused = not paused
 	state.is_paused = paused
 	stop_work()
 	pause_panel.visible = paused
 	work_option.set_pressed_no_signal(toggle_work)
-	feedback.pump.stream_paused = paused
-	feedback.music.stream_paused = paused
+	feedback.set_paused(paused)
 	if paused:
 		resume_button.grab_focus()
 	else:
@@ -340,12 +404,20 @@ func _physics_process(delta: float) -> void:
 		feedback.confirm()
 	work_active = working
 	state.work_target = target
-	state.advance(delta, working, can_work, blocked, profile.repair_seconds)
+	if state.helm_engaged and (not Input.is_action_pressed("interact") or target != "bridge" or map_open or blocked or not state.helm_available()):
+		state.release_helm()
+	var ticks: int = State.HELM_SPEED if state.helm_engaged else 1
+	for tick in ticks:
+		state.advance(delta, working, can_work, blocked, profile.repair_seconds)
+		if not state.helm_engaged:
+			break
 	# A terminal outcome can arrive during this tick, before the child moves.
 	player.frozen = paused or confirming or systems_panel.visible or state.terminal() or state.stage == State.Stage.TRANSITION
 	player.working = working and not state.terminal()
 	feedback.set_pump_running(state.cooling_active())
 	feedback.set_final_push(state.scenario.final_push and not state.terminal())
+	if not blocked and not state.terminal():
+		feedback.update_soundscape(hud.alert_priority(), delta)
 	if state.stage == State.Stage.TRANSITION:
 		systems_panel.close()
 		map_open = false
@@ -359,11 +431,14 @@ func _physics_process(delta: float) -> void:
 		systems_panel.close()
 		map_open = false
 		feedback.reset()
-		feedback.confirm(true) if state.escaped else feedback.alert()
+		feedback.finish(state.escaped)
 		results_panel.open()
+		camera.offset = Vector2.ZERO
 	systems_panel.refresh()
 	if not blocked and not state.terminal():
 		phase += delta
+		impulse_remaining = maxf(0.0, impulse_remaining - delta)
+		camera.offset = Vector2(0, sin(impulse_remaining * 34) * impulse_remaining * 14) if not reduced_shake else Vector2.ZERO
 		drive_switch_pull = move_toward(drive_switch_pull, 1.0 if state.drive_armed else 0.0, delta / 0.25)
 		drive_arm_flash = maxf(0.0, drive_arm_flash - delta)
 	player.carrying = state.motor == State.Motor.CARRIED
@@ -430,7 +505,10 @@ func prompt_title() -> String:
 		"power": return "POWER CONSOLE / E to allocate · %d / %d units" % [state.used_power(), profile.capacity]
 		"drive": return "JUMP DRIVE / " + state.drive_status() + (" · E to arm" if not state.drive_armed else "")
 		"reserve": return "EMERGENCY AIR / " + ("EMPTY" if state.reserve_used else "E to preview +%.2f air" % state.reserve_gain())
-		"bridge": return "BRIDGE / " + ("E to initiate JUMP" if state.escape_ready() else "Drive charge required")
+		"bridge":
+			if state.helm_engaged: return "HELM / Ship time ×%d · release E to cancel" % State.HELM_SPEED
+			if state.helm_available(): return "HELM / Hold E to fast-forward and jump"
+			return "HELM / " + ("E to initiate JUMP" if state.escape_ready() else "Waiting for charge")
 		"donor": return "SERVICE-DOOR PUMP MOTOR   /   E to review salvage"
 		"motor": return "MOTOR ON DECK   /   E to pick up"
 		"pump":
@@ -448,11 +526,17 @@ func prompt_detail() -> String:
 		"leak": return "Built-in repair tool · %.0fs total · progress retained · removes %.2f air loss per second." % [profile.patch_seconds, profile.leak_drain]
 		"power": return "Life support slows air loss. Cooling removes heat. Drive charging requires a power tradeoff."
 		"drive":
+			if state.escape_ready(): return "Charge complete. Use the helm on the Bridge to jump."
+			if state.drive_cooling_down: return "Charge retained. Cool below %.0f, then reassign drive power at Engineering." % profile.drive_restart
+			if state.charging(): return "Switch latched. The drive is charging."
 			if state.drive_armed:
 				return "Switch latched: ARMED. " + ("Allocate drive power at Engineering to charge." if state.repaired else "Repair the pump, then allocate drive power at Engineering.")
 			return "Pull the switch here, then allocate power in Engineering. Charge survives power loss and heat cutoff."
 		"reserve": return "One use. Preview shows the capped gain; full air never wastes the reserve."
-		"bridge": return "Manual jump requires full charge. Air and heat continue until the jump succeeds."
+		"bridge":
+			if state.helm_available():
+				return "Ship time ×%d while held. Air and heat advance. Cutoff interrupts the jump." % State.HELM_SPEED
+			return "Jump at full charge, or hold E here during the powered final approach."
 		"donor": return "Motor holds the shutter open through hydraulic pressure. Removing it closes the shortcut."
 		"motor": return "One motor. Carry it to Engineering. Dropped parts never block the route."
 		"pump":
@@ -471,8 +555,11 @@ func on_event(value: String) -> void:
 		feedback.confirm(true)
 	elif value.begins_with("HULL SEALED") or value.begins_with("CONNECTOR SEATED") or value.begins_with("COOLING VERIFIED"):
 		feedback.confirm(true)
-	elif value.begins_with("HULL LEAK") or value.begins_with("CARGO SEAL") or value.begins_with("JUMP FAILED"):
+	elif value.begins_with("JUMP FAILED"):
+		impulse_remaining = 0.28
 		feedback.alert()
+	elif value.begins_with("RETURN TO BRIDGE"):
+		feedback.ready_chime()
 	elif value.begins_with("Drive ARMED"):
 		drive_arm_flash = 1.2
 		feedback.switch_pull()
@@ -498,6 +585,9 @@ func reset_run(replay_opening := false) -> void:
 	work_active = false
 	work_task = "pump"
 	phase = 0
+	impulse_remaining = 0
+	camera.offset = Vector2.ZERO
+	settings_panel.hide()
 	drive_switch_pull = 0.0
 	drive_arm_flash = 0.0
 	pause_panel.hide()
@@ -507,8 +597,7 @@ func reset_run(replay_opening := false) -> void:
 	get_viewport().gui_release_focus()
 	systems_panel.close()
 	feedback.reset()
-	feedback.pump.stream_paused = false
-	feedback.music.stream_paused = false
+	feedback.set_paused(false)
 	message = state.events.back()["event"]
 	sync_state()
 
@@ -548,6 +637,9 @@ func _draw() -> void:
 	draw_string(font, Vector2(640, 853), "PERMANENT CORRIDOR  /  ALWAYS OPEN", HORIZONTAL_ALIGNMENT_LEFT, -1, 23, Color("c5d4d4"))
 	for i in Layout.ROOMS.size():
 		var corner: Vector2 = Layout.ROOMS[i].position + Vector2(24, 48)
+		# Stenciled room plate and matching numbered plan identify each station.
+		draw_rect(Rect2(corner + Vector2(-7, -29), Vector2(318, 39)), Color("142733"))
+		draw_line(corner + Vector2(-8, -28), corner + Vector2(-8, 9), Color("efbb70"), 4)
 		draw_string(font, corner, "%02d  /  %s" % [i + 1, Layout.NAMES[i]], HORIZONTAL_ALIGNMENT_LEFT, -1, 28, Color("efbb70"))
 	# Engineering: pump, pipes, status plate.
 	draw_line(Vector2(140, 320), Vector2(700, 320), Color("386b6c"), 15)
@@ -560,6 +652,10 @@ func _draw() -> void:
 	machine_label(Vector2(260, 420), "PUMP / " + state.pump_status())
 	machine_label(Vector2(550, 255), "POWER CONSOLE")
 	draw_rect(Rect2(552, 275, 120, 70), Color("38505c"))
+	for i in profile.capacity:
+		var slot := Rect2(562 + i * 17, 300, 11, 22)
+		draw_rect(slot, Color("101e29"))
+		if i < state.used_power(): draw_rect(slot.grow(-2), Color("7cdac0"))
 	machine_label(Vector2(550, 377), "POWER %d / %d" % [state.used_power(), profile.capacity])
 	# Cargo: crate silhouettes and donor, all floor decals, never solid blockers.
 	for x in [1450, 1560, 1930]:
@@ -600,9 +696,15 @@ func _draw() -> void:
 	# Bridge viewport and helm.
 	draw_rect(Rect2(180, 1170, 400, 80), Color("0a1c2b"))
 	for i in 12:
-		draw_circle(Vector2(197 + i * 31, 1185 + (i * 17) % 48), 2, Color("a8c6ce"))
-	draw_arc(Vector2(380, 1330), 60, PI, TAU, 24, Color("7cdac0"), 12)
-	machine_label(Layout.BRIDGE + Vector2(0, 80), "HELM / " + ("JUMP READY" if state.escape_ready() else "WAITING FOR CHARGE"), true)
+		var star := Vector2(197 + i * 31, 1185 + (i * 17) % 48)
+		draw_circle(star, 2, Color("a8c6ce"))
+		if state.helm_engaged and not reduced_flashing:
+			draw_line(star, star + Vector2(7 + sin(phase * 3) * 2, 0), READY_BLUE, 2)
+	draw_arc(Layout.BRIDGE, 60, PI, TAU, 32, Color("526b7c"), 12)
+	if state.charge > 0:
+		draw_arc(Layout.BRIDGE, 60, PI, PI + PI * state.charge / 100.0, 32, READY_BLUE if state.charge >= 100 else Color("efbb70"), 12)
+	if state.charge >= 100: draw_ready_core(Layout.BRIDGE + Vector2(0, -26), 23)
+	machine_label(Layout.BRIDGE + Vector2(0, 80), "HELM / " + ("JUMP READY" if state.charge >= 100 else ("FAST-FORWARD" if state.helm_engaged else "WAITING FOR CHARGE")), true)
 	# Life-support cylinders.
 	for x in [915, 1045, 1175]:
 		draw_style_box(cylinder_style(), Rect2(x, 1200, 80, 160))
@@ -618,6 +720,9 @@ func _draw() -> void:
 	draw_arc(drive, 66, 0, TAU, 64, Color("7cdac0"), 3)
 	machine_label(Vector2(1630, 1450), "DRIVE / " + state.drive_status())
 	draw_arc(drive, 80, -PI / 2, -PI / 2 + TAU * state.charge / 100.0, 64, Color("efbb70"), 8)
+	if state.charge >= 100:
+		draw_ready_core(drive, 62)
+		machine_label(drive + Vector2(0, 36), "READY", true)
 	draw_drive_switch()
 	if state.motor == State.Motor.DROPPED:
 		draw_motor(state.dropped_position)
@@ -627,6 +732,12 @@ func _draw() -> void:
 		var radius := 90 if target == "drive" else (24 if target == "motor" else 62)
 		draw_arc(point, radius, 0, TAU, 48, Color("efbb70"), 2)
 		draw_string(font, point + Vector2(-7, -radius - 8), "E", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color("efbb70"))
+
+func draw_ready_core(center: Vector2, radius: float) -> void:
+	draw_circle(center, radius, Color("245d80"))
+	draw_arc(center, radius, 0, TAU, 48, READY_BLUE, 4, true)
+	var mark := PackedVector2Array([center + Vector2(-0.40, -0.05) * radius, center + Vector2(-0.10, 0.18) * radius, center + Vector2(0.42, -0.38) * radius])
+	draw_polyline(mark, Color("e3f4ff"), 4, true)
 
 func draw_drive_switch() -> void:
 	# The lever follows arming, not power: it stays pulled during cutoff and power loss.
@@ -651,7 +762,7 @@ func draw_drive_switch() -> void:
 	var label_size := 18 if state.drive_armed else 14
 	var width := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, label_size).x
 	draw_string(font, point + Vector2(-width / 2, 80), label, HORIZONTAL_ALIGNMENT_LEFT, -1, label_size, color)
-	if drive_arm_flash > 0:
+	if drive_arm_flash > 0 and not reduced_flashing and state.charge < 100:
 		var flash := Color("7cdac0")
 		flash.a = drive_arm_flash / 1.2
 		draw_arc(point, 74 + (1.2 - drive_arm_flash) * 28, 0, TAU, 64, flash, 4)

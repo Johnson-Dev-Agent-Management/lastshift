@@ -1,6 +1,7 @@
 extends Control
 const Layout = preload("res://scripts/layout.gd")
 const State = preload("res://scripts/repair_state.gd")
+const Feedback = preload("res://scripts/feedback.gd")
 const INK := Color("e3eeeb")
 const MUTED := Color("9bafba")
 const AMBER := Color("efbb70")
@@ -23,11 +24,11 @@ func _draw() -> void:
 	draw_set_transform(Vector2.ZERO, 0, size / Vector2(1280, 720))
 	draw_rect(Rect2(0, 0, 1280, 142), Color("101e29"))
 	text_at(Vector2(28, 30), "LAST SHIFT", 25, AMBER)
-	text_at(Vector2(207, 29), "M4 / " + ship.State.Stage.keys()[state.stage], 14, MUTED)
+	text_at(Vector2(207, 29), ship.State.Stage.keys()[state.stage], 14, MUTED)
 	text_at(Vector2(28, 61), objective(), 21)
 	text_at(Vector2(960, 29), Layout.room_at(ship.player.position), 15, AMBER, 292)
 	text_at(Vector2(960, 55), "M ship map · Esc pause", 16, INK, 292)
-	text_at(Vector2(28, 88), "AIR RESERVE", 14, MUTED)
+	text_at(Vector2(28, 88), "CABIN AIR", 14, MUTED)
 	text_at(Vector2(28, 119), "%.1f" % state.air, 26, AMBER if state.air <= profile.air_warning else INK)
 	text_at(Vector2(116, 117), "%+.2f /s" % state.air_rate(), 17, MUTED)
 	text_at(Vector2(326, 88), "HEAT", 14, MUTED)
@@ -35,7 +36,7 @@ func _draw() -> void:
 	text_at(Vector2(410, 117), "%+.2f /s" % state.heat_rate(), 17, MINT if state.heat_rate() < 0 else AMBER)
 	text_at(Vector2(628, 88), "JUMP CHARGE", 14, MUTED)
 	text_at(Vector2(628, 119), "%.1f%%" % state.charge, 26, MINT)
-	text_at(Vector2(737, 117), "CHARGING" if state.charging() else ("READY" if state.escape_ready() else "RETAINED"), 15, MUTED)
+	text_at(Vector2(737, 117), "HELM ×%d" % ship.State.HELM_SPEED if state.helm_engaged else "CHARGING" if state.charging() else ("READY" if state.escape_ready() else "RETAINED"), 15, MUTED)
 	text_at(Vector2(960, 88), "REACTOR ALLOCATION", 14, MUTED)
 	text_at(Vector2(960, 119), "%d / %d" % [state.used_power(), profile.capacity], 26)
 	text_at(Vector2(1058, 117), "AIR %s  COOL %s" % ["ON" if state.life_support_powered else "OFF", "ON" if state.cooling_powered else "OFF"], 14, MUTED, 200)
@@ -68,7 +69,11 @@ func _draw() -> void:
 	if ship.map_open:
 		draw_rect(Rect2(210, 190, 860, 376), Color("101e29"))
 		text_at(Vector2(238, 218), "SHIP PLAN / M to close · TIME RUNNING", 19, AMBER)
-		draw_map(Vector2(380, 218), 0.20)
+		draw_map(Vector2(230, 225), 0.19)
+		var equipment := ["Coolant pump / Power console", "Door pump / Hull", "Helm", "Emergency air reserve", "Drive switch"]
+		for i in Layout.NAMES.size():
+			text_at(Vector2(674, 266 + i * 47), "%02d  %s" % [i + 1, Layout.NAMES[i]], 17, AMBER, 354)
+			text_at(Vector2(709, 286 + i * 47), equipment[i], 15, INK, 326)
 		text_at(Vector2(238, 548), "Permanent route OPEN · Shortcut " + ("CLOSED" if state.shortcut_closed() else "OPEN"), 17)
 	else:
 		draw_rect(Rect2(981, 152, 278, 203), Color(0.06, 0.10, 0.14, 0.94))
@@ -95,24 +100,35 @@ func _draw() -> void:
 			draw_rect(Rect2(240 + i * 202, 527, 188, 4), (MINT if pre_jump else AMBER) if i <= state.announcement_index else Color("31434e"))
 	if state.terminal(): draw_rect(Rect2(0, 0, 1280, 720), Color(0, 0, 0, 0.5))
 
+func alert_priority() -> Feedback.Alert:
+	var state = ship.state
+	if state.stage != ship.State.Stage.EMERGENCY: return Feedback.Alert.NONE
+	if state.critical: return Feedback.Alert.CRITICAL
+	if state.air <= ship.profile.air_warning: return Feedback.Alert.AIR
+	if state.drive_cooling_down: return Feedback.Alert.CUTOFF
+	if state.heat_warning: return Feedback.Alert.HEAT
+	if state.leak_active: return Feedback.Alert.LEAK
+	if state.scenario.leak_warned and not state.scenario.leak_fired: return Feedback.Alert.STRAIN
+	return Feedback.Alert.NONE
+
 func warning_text() -> String:
 	var state = ship.state
-	if state.terminal(): return ""
 	if state.stage == ship.State.Stage.OPENING: return "PRE-JUMP CHECKLIST · no resource danger · take your time"
-	if state.critical:
-		var action := "keep cooling powered" if state.cooling_active() else "turn on cooling"
-		if state.drive_powered: action += ", stop drive"
-		return "CRITICAL HEAT · %.1fs remaining · %s" % [maxf(0, ship.profile.critical_grace_seconds - state.critical_elapsed), action]
-	if state.air <= ship.profile.air_warning:
-		if state.escape_ready(): return "LOW AIR · jump ready — reach the Bridge and jump now"
-		if state.leak_active: return "LOW AIR · patch the Cargo leak to stop extra loss"
-		if not state.life_support_powered: return "LOW AIR · power life support to slow the loss"
-		if not state.reserve_used: return "LOW AIR · emergency reserve available in Life Support"
-		return "LOW AIR · life support on, reserve spent · finish charging and reach the bridge"
-	if state.drive_cooling_down: return "DRIVE COOLING DOWN · charge retained · cool below %.0f, then reassign power" % ship.profile.drive_restart
-	if state.heat_warning: return "HIGH HEAT · enable cooling or stop charging before cutoff at %.0f" % ship.profile.drive_cutoff
-	if state.leak_active: return "CARGO HULL LEAK · extra −%.2f air/s · patch with your built-in tool" % ship.profile.leak_drain
-	if state.scenario.leak_warned and not state.scenario.leak_fired: return "CARGO SEAL STRAIN · your built-in repair tool can patch a leak"
+	match alert_priority():
+		Feedback.Alert.CRITICAL:
+			var action := "keep cooling powered" if state.cooling_active() else "turn on cooling"
+			if state.drive_powered: action += ", stop drive"
+			return "CRITICAL HEAT · %.1fs remaining · %s" % [maxf(0, ship.profile.critical_grace_seconds - state.critical_elapsed), action]
+		Feedback.Alert.AIR:
+			if state.escape_ready(): return "LOW AIR · use the helm now" if ship.target == "bridge" else "LOW AIR · jump ready — reach the Bridge and jump now"
+			if state.leak_active: return "LOW AIR · patch the Cargo leak to stop extra loss"
+			if not state.life_support_powered: return "LOW AIR · power life support to slow the loss"
+			if not state.reserve_used: return "LOW AIR · emergency reserve available in Life Support"
+			return "LOW AIR · life support on, reserve spent · finish charging and reach the Bridge"
+		Feedback.Alert.CUTOFF: return "DRIVE COOLING DOWN · charge retained · cool below %.0f, then reassign power" % ship.profile.drive_restart
+		Feedback.Alert.HEAT: return "HIGH HEAT · watch cutoff at %.0f" % ship.profile.drive_cutoff if state.cooling_active() else "HIGH HEAT · power the repaired pump or stop charging"
+		Feedback.Alert.LEAK: return "CARGO HULL LEAK · extra −%.2f air/s · patch with your built-in tool" % ship.profile.leak_drain
+		Feedback.Alert.STRAIN: return "CARGO SEAL STRAIN · your built-in repair tool can patch a leak"
 	return ""
 
 func objective() -> String:
@@ -124,7 +140,9 @@ func objective() -> String:
 		return "Pre-jump check: Engineering power — cycle cooling OFF, then ON."
 	if state.stage == ship.State.Stage.TRANSITION:
 		return "Checklist complete. Stand by for the scheduled jump." if state.announcement_index == 0 else "Jump failure. Read the ship status report."
-	if state.escape_ready(): return "RETURN TO BRIDGE — JUMP READY"
+	if state.helm_engaged: return "Helm engaged. Release E to return to normal speed."
+	if ship.target == "bridge" and state.helm_available(): return "Final approach. Hold E at the helm to jump when ready."
+	if state.escape_ready(): return "HELM READY — press E to jump" if ship.target == "bridge" else "RETURN TO BRIDGE — JUMP READY"
 	if state.motor == State.Motor.DONOR: return "Get home. Restore cooling — salvage Cargo's door-pump motor."
 	if state.motor == State.Motor.DROPPED: return "Get home. Recover the motor marked on your map."
 	if not state.repaired: return "Get home. Carry the motor to Engineering and repair the pump."
@@ -132,7 +150,7 @@ func objective() -> String:
 	if state.leak_active: return "Get home. Patch the Cargo leak or spend air to keep charging."
 	if state.drive_cooling_down: return "Cool the drive. Charge is retained; power must be reassigned."
 	if not state.drive_powered: return "Drive armed. Allocate power at the Engineering console."
-	return "Final push. Keep charging, then return to the bridge." if state.scenario.final_push else "Charge the drive. Watch air and heat; repaired cooling is permanent."
+	return "Final push. Keep charging, then return to the Bridge." if state.scenario.final_push else "Charge the drive. Watch air and heat; repaired cooling is permanent."
 
 func draw_map(origin: Vector2, scale_factor: float) -> void:
 	for floor_area: Rect2 in Layout.floors():
@@ -142,8 +160,7 @@ func draw_map(origin: Vector2, scale_factor: float) -> void:
 		var center: Vector2 = origin + area.get_center() * scale_factor
 		draw_circle(center, 8 if scale_factor < 0.2 else 13, Color("152b37"))
 		text_at(center + Vector2(-4, 5), str(i + 1), 13, AMBER)
-		if scale_factor >= 0.2:
-			text_at(origin + (area.position + Vector2(20, 55)) * scale_factor, Layout.NAMES[i], 13, INK)
+
 	if ship.state.shortcut_closed():
 		var gate_pos := origin + Layout.GATE.get_center() * scale_factor
 		draw_line(gate_pos - Vector2(6, 6), gate_pos + Vector2(6, 6), AMBER, 3)
