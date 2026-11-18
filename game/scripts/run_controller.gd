@@ -1,6 +1,7 @@
 extends "res://scripts/ship_simulation.gd"
 ## Opening, transition, emergency and outcomes share the simulation's fixed clock.
 const Scenario = preload("res://scripts/scenario_controller.gd")
+const HELM_SPEED := 4
 enum Stage { OPENING, TRANSITION, EMERGENCY, WON, LOST }
 const ANNOUNCEMENTS := [
 	"COOLING VERIFIED — CHECKLIST COMPLETE\nBridge: preparing the scheduled jump.",
@@ -21,6 +22,7 @@ var leak_active := false
 var leak_patched := false
 var patch_elapsed := 0.0
 var work_target := "pump"
+var helm_engaged := false
 var jump_requested := false
 
 func _init(config: Resource = DEFAULT_PROFILE, with_opening := true) -> void:
@@ -104,11 +106,15 @@ func step(working: bool, in_range: bool) -> void:
 			record("HULL SEALED — extra air loss stopped. This patch is permanent.")
 	super.step(working and work_target == "pump", in_range)
 	if terminal():
+		helm_engaged = false
 		jump_requested = false
 		return
 	scenario.advance(STEP, self)
 	# Bridge input is queued. Survival resolves first, including the request tick.
-	if jump_requested:
+	if helm_engaged and drive_cooling_down:
+		helm_engaged = false
+	if jump_requested or (helm_engaged and escape_ready()):
+		helm_engaged = false
 		jump_requested = false
 		if escape_ready():
 			escaped = true
@@ -137,6 +143,19 @@ func begin_emergency() -> void:
 	# Routine resources never depleted; start the response clock only now.
 	record("GET HOME. Coolant pump failed. Salvage the Cargo motor; restore cooling, then charge the drive.")
 
+func helm_available() -> bool:
+	return emergency_command() and scenario.final_push and charging()
+
+func engage_helm() -> void:
+	if helm_available() and not helm_engaged:
+		helm_engaged = true
+		record("Helm engaged. Ship time ×%d until jump or release." % HELM_SPEED)
+
+func release_helm() -> void:
+	if helm_engaged:
+		helm_engaged = false
+		record("Helm released. Ship time normal.")
+
 func request_jump() -> String:
 	if not emergency_command(): return "Jump unavailable."
 	if not escape_ready(): return "Charge the drive fully before initiating jump."
@@ -146,6 +165,7 @@ func request_jump() -> String:
 func stop_simulation(cause: String) -> void:
 	if terminal(): return
 	stage = Stage.LOST
+	helm_engaged = false
 	jump_requested = false
 	super.stop_simulation(cause)
 
@@ -165,6 +185,6 @@ func snapshot() -> Dictionary:
 	result.merge({"stage": Stage.keys()[stage], "opening_seconds": opening_seconds,
 		"connector_seconds": connector_elapsed, "connector_ready": connector_ready, "power_practiced": power_practiced,
 		"transition_seconds": transition_seconds, "leak_active": leak_active, "leak_patched": leak_patched,
-		"patch_seconds": patch_elapsed, "jump_requested": jump_requested,
+		"patch_seconds": patch_elapsed, "jump_requested": jump_requested, "helm_engaged": helm_engaged,
 		"scenario": scenario.snapshot() if scenario != null else {}})
 	return result

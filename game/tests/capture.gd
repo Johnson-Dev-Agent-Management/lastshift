@@ -13,7 +13,7 @@ func capture(viewport: SubViewport, label: String) -> void:
 	viewport.get_texture().get_image().save_png(path)
 
 func run() -> void:
-	output = ProjectSettings.globalize_path("res://../builds/screenshots-m4")
+	output = ProjectSettings.globalize_path("res://../builds/screenshots-m5")
 	DirAccess.make_dir_recursive_absolute(output)
 	for dimensions in [Vector2i(1280, 720), Vector2i(1920, 1080)]:
 		var viewport := SubViewport.new()
@@ -30,6 +30,9 @@ func run() -> void:
 		await capture(viewport, "opening-route")
 		ship.toggle_pause()
 		await capture(viewport, "pause-report-action")
+		ship.open_settings()
+		await capture(viewport, "accessibility")
+		ship.close_settings()
 		ship.toggle_pause()
 		for i in range(1, ship.Layout.ROOMS.size()):
 			ship.player.position = ship.Layout.ROOMS[i].get_center()
@@ -73,7 +76,19 @@ func run() -> void:
 		ship.state.work_target = "leak"
 		ship.state.advance(5, true, true, false, 6)
 		await capture(viewport, "leak-sealed")
-		ship.state.charge = 100
+		ship.state.set_power("life_support", false)
+		ship.state.set_power("drive", true)
+		ship.state.charge = 88.25
+		ship.player.position = ship.Layout.BRIDGE
+		await capture(viewport, "helm-available")
+		Input.action_press("interact")
+		ship.interact()
+		await capture(viewport, "helm-engaged")
+		Input.action_release("interact")
+		ship.state.release_helm()
+		ship.player.position = ship.Layout.DRIVE_PANEL
+		ship.state.charge = 99.99
+		await capture(viewport, "drive-ready")
 		ship.state.air = 20
 		ship.state.leak_active = true
 		ship.state.leak_patched = false
@@ -98,5 +113,5 @@ func run() -> void:
 		await capture(viewport, "critical-recovery")
 		viewport.queue_free()
 		await process_frame
-	print("LAST_SHIFT_CAPTURE_PASS: M4 report actions, warning guidance and outcomes at 1280x720 and 1920x1080")
+	print("LAST_SHIFT_CAPTURE_PASS: M5 helm, ready core, settings, warnings and outcomes at 1280x720 and 1920x1080")
 	quit()
